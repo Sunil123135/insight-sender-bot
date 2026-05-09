@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { Sidebar } from "@/components/Sidebar";
+import { Toaster } from "sonner";
 
 function NotFoundComponent() {
   return (
@@ -72,11 +74,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "ScrapeSignal — Daily intelligence brief" },
+      { name: "description", content: "Scrape curated sources across Finance, Supply Chain, Marketing, and AI/Content. Get an AI-summarized brief delivered via email or n8n." },
+      { name: "author", content: "ScrapeSignal" },
+      { property: "og:title", content: "ScrapeSignal — Daily intelligence brief" },
+      { property: "og:description", content: "AI-summarized signal from your curated sources, delivered via email or n8n." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
@@ -113,7 +115,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <div className="min-h-screen md:flex">
+        <Sidebar />
+        <main className="flex-1 px-4 pb-20 pt-6 md:px-10 md:pb-10">
+          <Outlet />
+        </main>
+      </div>
+      <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
 }
