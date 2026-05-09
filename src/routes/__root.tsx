@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { Sidebar } from "@/components/Sidebar";
+import { Toaster } from "sonner";
 
 function NotFoundComponent() {
   return (
