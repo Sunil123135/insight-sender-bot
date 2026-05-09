@@ -78,10 +78,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Scrape curated sources across Finance, Supply Chain, Marketing, and AI/Content. Get an AI-summarized brief delivered via email or n8n." },
       { name: "author", content: "ScrapeSignal" },
       { property: "og:title", content: "ScrapeSignal — Daily intelligence brief" },
-      { property: "og:description", content: "AI-summarized signal from your curated sources, delivered via email or n8n." },
+      { property: "og:description", content: "Scrape curated sources across Finance, Supply Chain, Marketing, and AI/Content. Get an AI-summarized brief delivered via email or n8n." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "ScrapeSignal — Daily intelligence brief" },
+      { name: "twitter:description", content: "Scrape curated sources across Finance, Supply Chain, Marketing, and AI/Content. Get an AI-summarized brief delivered via email or n8n." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/09585fe4-028a-4035-9277-f67b5458d68c/id-preview-3bcb9dc7--ea40cd0b-1860-4730-a636-c2c5953c8993.lovable.app-1778317852002.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/09585fe4-028a-4035-9277-f67b5458d68c/id-preview-3bcb9dc7--ea40cd0b-1860-4730-a636-c2c5953c8993.lovable.app-1778317852002.png" },
     ],
     links: [
       {
