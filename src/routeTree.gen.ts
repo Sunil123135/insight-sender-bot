@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SourcesRouteImport } from './routes/sources'
 import { Route as BriefRouteImport } from './routes/brief'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicHooksRunDailyRouteImport } from './routes/api/public/hooks/run-daily'
 
 const SourcesRoute = SourcesRouteImport.update({
   id: '/sources',
@@ -28,35 +29,44 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksRunDailyRoute = ApiPublicHooksRunDailyRouteImport.update({
+  id: '/api/public/hooks/run-daily',
+  path: '/api/public/hooks/run-daily',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/brief': typeof BriefRoute
   '/sources': typeof SourcesRoute
+  '/api/public/hooks/run-daily': typeof ApiPublicHooksRunDailyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/brief': typeof BriefRoute
   '/sources': typeof SourcesRoute
+  '/api/public/hooks/run-daily': typeof ApiPublicHooksRunDailyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/brief': typeof BriefRoute
   '/sources': typeof SourcesRoute
+  '/api/public/hooks/run-daily': typeof ApiPublicHooksRunDailyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/brief' | '/sources'
+  fullPaths: '/' | '/brief' | '/sources' | '/api/public/hooks/run-daily'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/brief' | '/sources'
-  id: '__root__' | '/' | '/brief' | '/sources'
+  to: '/' | '/brief' | '/sources' | '/api/public/hooks/run-daily'
+  id: '__root__' | '/' | '/brief' | '/sources' | '/api/public/hooks/run-daily'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BriefRoute: typeof BriefRoute
   SourcesRoute: typeof SourcesRoute
+  ApiPublicHooksRunDailyRoute: typeof ApiPublicHooksRunDailyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/run-daily': {
+      id: '/api/public/hooks/run-daily'
+      path: '/api/public/hooks/run-daily'
+      fullPath: '/api/public/hooks/run-daily'
+      preLoaderRoute: typeof ApiPublicHooksRunDailyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,7 +106,18 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BriefRoute: BriefRoute,
   SourcesRoute: SourcesRoute,
+  ApiPublicHooksRunDailyRoute: ApiPublicHooksRunDailyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
