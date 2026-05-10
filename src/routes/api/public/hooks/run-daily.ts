@@ -38,7 +38,26 @@ async function runDaily() {
 
   const briefId = brief!.id as string;
   const collected: BriefItem[] = [];
-  const itemRows: Array<Record<string, unknown>> = [];
+  type ItemRow = {
+    source_id: string;
+    source_name: string;
+    domain: string;
+    url: string;
+    title: string;
+    summary: string;
+    why: string;
+    whats_new: string;
+    whats_changing: string;
+    whats_coming: string;
+    for_me: string;
+    to_learn: string;
+    monetize: string;
+    takeaways: string[];
+    image_url: string | null;
+    score: number;
+    brief_id: string;
+  };
+  const itemRows: ItemRow[] = [];
   let failures = 0;
 
   for (const src of sources) {
