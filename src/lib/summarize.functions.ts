@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const InputSchema = z.object({
   url: z.string().url(),
-  domain: z.enum(["finance", "supply_chain", "marketing", "ai_content"]),
+  domain: z.string().min(1),
   content: z.string().min(20).max(20_000),
 });
 
@@ -11,26 +11,23 @@ const ItemSchema = z.object({
   title: z.string(),
   url: z.string(),
   summary: z.string(),
-  why: z.string(),
+  why: z.string().default(""),
+  whats_new: z.string().default(""),
+  whats_changing: z.string().default(""),
+  whats_coming: z.string().default(""),
+  for_me: z.string().default(""),
+  to_learn: z.string().default(""),
+  monetize: z.string().default(""),
   score: z.number().min(0).max(10),
-  takeaways: z.array(z.string()).max(5),
+  takeaways: z.array(z.string()).max(5).default([]),
 });
+const ResponseSchema = z.object({ items: z.array(ItemSchema).max(8) });
 
-const ResponseSchema = z.object({
-  items: z.array(ItemSchema).max(8),
-});
+export type SummarizedItem = z.infer<typeof ItemSchema>;
 
-const DOMAIN_LENS: Record<string, string> = {
-  finance: "a finance professional tracking markets, macro, deals and corporate news",
-  supply_chain: "a supply chain operator tracking logistics, freight, sourcing and disruptions",
-  marketing: "a marketing leader tracking campaigns, channels, brand and ad-tech",
-  ai_content: "an AI / content strategist tracking model releases, research and product launches",
-};
-
-async function callClaude(systemPrompt: string, userPrompt: string, retry = true): Promise<string> {
+async function callClaude(system: string, user: string, retry = true): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not configured");
-
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -40,15 +37,14 @@ async function callClaude(systemPrompt: string, userPrompt: string, retry = true
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5",
-      max_tokens: 1500,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+      max_tokens: 2500,
+      system,
+      messages: [{ role: "user", content: user }],
     }),
   });
-
   if (!res.ok) {
     const body = await res.text();
-    if (retry && res.status >= 500) return callClaude(systemPrompt, userPrompt, false);
+    if (retry && res.status >= 500) return callClaude(system, user, false);
     throw new Error(`Claude ${res.status}: ${body.slice(0, 300)}`);
   }
   const data = (await res.json()) as { content: Array<{ type: string; text?: string }> };
@@ -56,14 +52,11 @@ async function callClaude(systemPrompt: string, userPrompt: string, retry = true
 }
 
 function extractJson(text: string): unknown {
-  // Try fenced block first
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidate = fence ? fence[1] : text;
-  // Find the first {...} or [...] body
   const start = candidate.search(/[{[]/);
   if (start === -1) throw new Error("no JSON in model output");
   const slice = candidate.slice(start);
-  // Walk braces
   let depth = 0,
     end = -1,
     inStr = false,
@@ -92,59 +85,64 @@ function extractJson(text: string): unknown {
   return JSON.parse(slice.slice(0, end));
 }
 
-export const summarizeContent = createServerFn({ method: "POST" })
-  .inputValidator((d) => InputSchema.parse(d))
-  .handler(async ({ data }) => {
-    const lens = DOMAIN_LENS[data.domain];
-    const system = `You are a senior analyst building a daily intelligence brief for ${lens}.
-You read scraped pages (often listings of multiple articles) and extract the most signal-dense items.
-You ALWAYS respond with strict JSON matching the requested schema. No prose, no markdown fences.`;
+const SYSTEM = `You are a senior intelligence analyst building a daily brief for a curious operator who tracks new AI models, artificial intelligence, consciousness, spirituality, vision systems, and large language models.
+You read scraped pages (often listings) and surface the highest-signal items.
+For each item you analyze through six lenses: what's NEW, what's CHANGING, what's ABOUT TO HAPPEN, WHAT'S IN IT FOR ME (the reader), what they CAN LEARN, and how they could MONETIZE it.
+Be concrete and specific. Prefer named models, papers, organizations, and dates over vague claims. Skip filler.
+ALWAYS respond with strict JSON matching the requested schema. No prose, no markdown fences.`;
 
-    const user = `Source URL: ${data.url}
-Domain: ${data.domain}
+export async function summarizeContentImpl(args: {
+  url: string;
+  domain: string;
+  content: string;
+}): Promise<{ ok: true; items: SummarizedItem[] } | { ok: false; error: string }> {
+  const user = `Source URL: ${args.url}
+Domain focus: ${args.domain} (themes: new AI models, artificial intelligence, consciousness, spirituality, computer vision, language models)
 
 Scraped content (markdown / text, may include multiple articles or a listing):
 """
-${data.content}
+${args.content}
 """
 
-Extract up to 5 distinct, high-signal items relevant to ${data.domain}. For each item:
-- title: original headline if present, otherwise a tight summary headline (<= 90 chars)
-- url: the most specific article URL you can find in the content; if none, use the source URL "${data.url}"
+Extract up to 5 distinct, high-signal items. For each:
+- title: original headline if present, else a tight headline (<= 90 chars)
+- url: most specific article URL in the content; if none, use "${args.url}"
 - summary: 2-3 sentences on what happened
-- why: 1 sentence on why it matters for ${data.domain}
-- score: integer 0-10 relevance to ${data.domain} (10 = must-read)
+- why: 1 sentence on why it matters
+- whats_new: one sentence — what is genuinely new here
+- whats_changing: one sentence — what is shifting in the field because of this
+- whats_coming: one sentence — what this signals for the next 1-6 months
+- for_me: one sentence — what's in it for a curious AI/consciousness/vision practitioner
+- to_learn: one sentence — concrete concept, paper, or skill to study
+- monetize: one sentence — a plausible way to turn this into income (product, consulting, content, etc.)
+- score: integer 0-10 relevance (10 = must-read)
 - takeaways: 2-3 short bullet strings
 
-Respond with this JSON only:
-{"items":[{"title":"","url":"","summary":"","why":"","score":0,"takeaways":[""]}]}`;
+Respond with JSON ONLY:
+{"items":[{"title":"","url":"","summary":"","why":"","whats_new":"","whats_changing":"","whats_coming":"","for_me":"","to_learn":"","monetize":"","score":0,"takeaways":[""]}]}`;
 
-    let raw: string;
+  let raw: string;
+  try {
+    raw = await callClaude(SYSTEM, user);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "claude failed" };
+  }
+  let parsed: unknown;
+  try {
+    parsed = extractJson(raw);
+  } catch {
     try {
-      raw = await callClaude(system, user);
-    } catch (e) {
-      return { ok: false as const, error: e instanceof Error ? e.message : "claude failed" };
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = extractJson(raw);
+      const raw2 = await callClaude(SYSTEM, user + "\n\nReminder: VALID JSON only.");
+      parsed = extractJson(raw2);
     } catch {
-      // one retry asking for JSON only
-      try {
-        const raw2 = await callClaude(
-          system,
-          user + "\n\nReminder: respond with VALID JSON only. No commentary."
-        );
-        parsed = extractJson(raw2);
-      } catch (e) {
-        return { ok: false as const, error: "could not parse JSON from model" };
-      }
+      return { ok: false, error: "could not parse JSON from model" };
     }
+  }
+  const safe = ResponseSchema.safeParse(parsed);
+  if (!safe.success) return { ok: false, error: "model JSON did not match schema" };
+  return { ok: true, items: safe.data.items };
+}
 
-    const safe = ResponseSchema.safeParse(parsed);
-    if (!safe.success) {
-      return { ok: false as const, error: "model JSON did not match schema" };
-    }
-    return { ok: true as const, items: safe.data.items };
-  });
+export const summarizeContent = createServerFn({ method: "POST" })
+  .inputValidator((d) => InputSchema.parse(d))
+  .handler(async ({ data }) => summarizeContentImpl(data));
