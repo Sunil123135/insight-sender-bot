@@ -1,18 +1,17 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Activity, Database, Send, Radio } from "lucide-react";
+import { Activity, Database, Calendar, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: Activity },
   { to: "/sources", label: "Sources", icon: Database },
-  { to: "/brief", label: "Today's Brief", icon: Send },
+  { to: "/schedule", label: "Schedule", icon: Calendar },
 ] as const;
 
 export function Sidebar() {
   const loc = useLocation();
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar md:px-4 md:py-6">
         <Link to="/" className="mb-8 flex items-center gap-2 px-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -20,7 +19,7 @@ export function Sidebar() {
           </div>
           <div className="leading-tight">
             <div className="text-base font-bold tracking-tight">ScrapeSignal</div>
-            <div className="text-[11px] text-muted-foreground">Daily intelligence brief</div>
+            <div className="text-[11px] text-muted-foreground">Daily AI brief · 7am IST</div>
           </div>
         </Link>
         <nav className="flex flex-col gap-1">
@@ -44,11 +43,10 @@ export function Sidebar() {
           })}
         </nav>
         <div className="mt-auto rounded-xl border border-border bg-accent/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
-          MVP build. Sources & saved items live in this browser. Briefs send via n8n webhook or Resend email.
+          New models · AI · consciousness · spirituality · vision · LLMs. Auto-delivered every morning.
         </div>
       </aside>
 
-      {/* Mobile bottom tabs */}
       <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card md:hidden">
         {NAV.map(({ to, label, icon: Icon }) => {
           const active = loc.pathname === to;

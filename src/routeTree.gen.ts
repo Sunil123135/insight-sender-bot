@@ -10,17 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SourcesRouteImport } from './routes/sources'
-import { Route as BriefRouteImport } from './routes/brief'
+import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicHooksRunDailyRouteImport } from './routes/api/public/hooks/run-daily'
 
 const SourcesRoute = SourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BriefRoute = BriefRouteImport.update({
-  id: '/brief',
-  path: '/brief',
+const ScheduleRoute = ScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -28,35 +29,49 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksRunDailyRoute = ApiPublicHooksRunDailyRouteImport.update({
+  id: '/api/public/hooks/run-daily',
+  path: '/api/public/hooks/run-daily',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/brief': typeof BriefRoute
+  '/schedule': typeof ScheduleRoute
   '/sources': typeof SourcesRoute
+  '/api/public/hooks/run-daily': typeof ApiPublicHooksRunDailyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/brief': typeof BriefRoute
+  '/schedule': typeof ScheduleRoute
   '/sources': typeof SourcesRoute
+  '/api/public/hooks/run-daily': typeof ApiPublicHooksRunDailyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/brief': typeof BriefRoute
+  '/schedule': typeof ScheduleRoute
   '/sources': typeof SourcesRoute
+  '/api/public/hooks/run-daily': typeof ApiPublicHooksRunDailyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/brief' | '/sources'
+  fullPaths: '/' | '/schedule' | '/sources' | '/api/public/hooks/run-daily'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/brief' | '/sources'
-  id: '__root__' | '/' | '/brief' | '/sources'
+  to: '/' | '/schedule' | '/sources' | '/api/public/hooks/run-daily'
+  id:
+    | '__root__'
+    | '/'
+    | '/schedule'
+    | '/sources'
+    | '/api/public/hooks/run-daily'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BriefRoute: typeof BriefRoute
+  ScheduleRoute: typeof ScheduleRoute
   SourcesRoute: typeof SourcesRoute
+  ApiPublicHooksRunDailyRoute: typeof ApiPublicHooksRunDailyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -68,11 +83,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/brief': {
-      id: '/brief'
-      path: '/brief'
-      fullPath: '/brief'
-      preLoaderRoute: typeof BriefRouteImport
+    '/schedule': {
+      id: '/schedule'
+      path: '/schedule'
+      fullPath: '/schedule'
+      preLoaderRoute: typeof ScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -82,24 +97,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/run-daily': {
+      id: '/api/public/hooks/run-daily'
+      path: '/api/public/hooks/run-daily'
+      fullPath: '/api/public/hooks/run-daily'
+      preLoaderRoute: typeof ApiPublicHooksRunDailyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BriefRoute: BriefRoute,
+  ScheduleRoute: ScheduleRoute,
   SourcesRoute: SourcesRoute,
+  ApiPublicHooksRunDailyRoute: ApiPublicHooksRunDailyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
