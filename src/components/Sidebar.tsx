@@ -1,6 +1,7 @@
-import { Link, useLocation } from "@tanstack/react-router";
-import { Activity, Database, Calendar, Radio } from "lucide-react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Activity, Database, Calendar, Radio, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: Activity },
@@ -10,6 +11,11 @@ const NAV = [
 
 export function Sidebar() {
   const loc = useLocation();
+  const navigate = useNavigate();
+  const logout = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/login" });
+  };
   return (
     <>
       <aside className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-sidebar-border md:bg-sidebar md:px-4 md:py-6">
@@ -42,8 +48,17 @@ export function Sidebar() {
             );
           })}
         </nav>
-        <div className="mt-auto rounded-xl border border-border bg-accent/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
-          New models · AI · consciousness · spirituality · vision · LLMs. Auto-delivered every morning.
+        <div className="mt-auto space-y-3">
+          <button
+            onClick={logout}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </button>
+          <div className="rounded-xl border border-border bg-accent/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
+            New models · AI · consciousness · spirituality · vision · LLMs. Auto-delivered every morning.
+          </div>
         </div>
       </aside>
 

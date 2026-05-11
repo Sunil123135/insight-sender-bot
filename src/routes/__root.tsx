@@ -8,9 +8,13 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
+import { useEffect, useState } from "react";
+
 import appCss from "../styles.css?url";
 import { Sidebar } from "@/components/Sidebar";
 import { Toaster } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { ALLOWED_EMAIL } from "@/lib/auth-guard";
 
 function NotFoundComponent() {
   return (
@@ -116,16 +120,47 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  const [authState, setAuthState] = useState<"loading" | "in" | "out">("loading");
+
+  useEffect(() => {
+    let mounted = true;
+    const check = (email: string | undefined) => {
+      if (!mounted) return;
+      setAuthState(email?.toLowerCase() === ALLOWED_EMAIL.toLowerCase() ? "in" : "out");
+    };
+    supabase.auth.getSession().then(({ data }) => check(data.session?.user?.email));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      check(session?.user?.email);
+      router.invalidate();
+    });
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, [router]);
+
+  const path = router.state.location.pathname;
+  const isLoginRoute = path === "/login";
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen md:flex">
-        <Sidebar />
-        <main className="flex-1 px-4 pb-20 pt-6 md:px-10 md:pb-10">
-          <Outlet />
-        </main>
-      </div>
+      {isLoginRoute || authState === "in" ? (
+        <div className="min-h-screen md:flex">
+          {!isLoginRoute && <Sidebar />}
+          <main className="flex-1 px-4 pb-20 pt-6 md:px-10 md:pb-10">
+            <Outlet />
+          </main>
+        </div>
+      ) : authState === "loading" ? (
+        <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading…</div>
+      ) : (
+        <RedirectToLogin />
+      )}
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
+}
+
+function RedirectToLogin() {
+  const router = useRouter();
+  useEffect(() => { router.navigate({ to: "/login" }); }, [router]);
+  return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Redirecting…</div>;
 }
