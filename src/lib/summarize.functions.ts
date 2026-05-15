@@ -161,16 +161,16 @@ Respond with JSON ONLY:
 
   let raw: string;
   try {
-    raw = await callClaude(SYSTEM, user);
+    raw = (await callModel(SYSTEM, user)).raw;
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "claude failed" };
+    return { ok: false, error: e instanceof Error ? e.message : "model call failed" };
   }
   let parsed: unknown;
   try {
     parsed = extractJson(raw);
   } catch {
     try {
-      const raw2 = await callClaude(SYSTEM, user + "\n\nReminder: VALID JSON only.");
+      const raw2 = (await callModel(SYSTEM, user + "\n\nReminder: VALID JSON only.")).raw;
       parsed = extractJson(raw2);
     } catch {
       return { ok: false, error: "could not parse JSON from model" };
