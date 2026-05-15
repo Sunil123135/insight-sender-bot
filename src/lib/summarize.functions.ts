@@ -51,6 +51,44 @@ async function callClaude(system: string, user: string, retry = true): Promise<s
   return data.content.map((c) => c.text ?? "").join("");
 }
 
+async function callOpenAI(system: string, user: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      max_tokens: 2500,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`OpenAI ${res.status}: ${body.slice(0, 300)}`);
+  }
+  const data = (await res.json()) as { choices: Array<{ message: { content: string } }> };
+  return data.choices.map((c) => c.message?.content ?? "").join("");
+}
+
+async function callModel(system: string, user: string): Promise<{ raw: string; provider: "claude" | "openai" }> {
+  try {
+    const raw = await callClaude(system, user);
+    return { raw, provider: "claude" };
+  } catch (e) {
+    if (!process.env.OPENAI_API_KEY) throw e;
+    console.warn("Claude failed, falling back to OpenAI:", e instanceof Error ? e.message : e);
+    const raw = await callOpenAI(system, user);
+    return { raw, provider: "openai" };
+  }
+}
+
 function extractJson(text: string): unknown {
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidate = fence ? fence[1] : text;
