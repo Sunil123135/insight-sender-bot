@@ -14,7 +14,6 @@ import appCss from "../styles.css?url";
 import { Sidebar } from "@/components/Sidebar";
 import { Toaster } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import "@/integrations/supabase/server-fn-fetch.client";
 import { ALLOWED_EMAIL } from "@/lib/auth-guard";
 
 function NotFoundComponent() {
