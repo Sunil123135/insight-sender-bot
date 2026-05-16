@@ -137,12 +137,18 @@ export const triggerRunNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     assertAllowed(context.claims as { email?: string });
-    try {
-      return await runDaily();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "run failed";
-      console.error("triggerRunNow failed:", e);
-      return { ok: false as const, error: msg };
+    // Run pipeline in the background — scraping + summarizing 20 sources can
+    // take several minutes, far beyond the request timeout. Use Cloudflare's
+    // waitUntil when available so the worker keeps the promise alive after
+    // we return.
+    const promise = runDaily().catch((e) => {
+      console.error("runDaily background failure:", e);
+    });
+    const ctx = (globalThis as { __cfCtx?: { waitUntil?: (p: Promise<unknown>) => void } })
+      .__cfCtx;
+    if (ctx?.waitUntil) {
+      ctx.waitUntil(promise);
     }
+    return { ok: true as const, queued: true };
   });
 
