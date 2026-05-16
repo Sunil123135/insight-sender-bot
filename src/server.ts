@@ -69,6 +69,9 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // Expose Cloudflare ExecutionContext so server functions can use waitUntil
+      // for fire-and-forget background work (e.g. long-running pipelines).
+      (globalThis as { __cfCtx?: unknown }).__cfCtx = ctx;
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
