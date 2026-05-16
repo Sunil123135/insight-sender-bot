@@ -137,14 +137,6 @@ export const triggerRunNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     assertAllowed(context.claims as { email?: string });
-    const base =
-      process.env.PUBLIC_BASE_URL ??
-      "https://project--ea40cd0b-1860-4730-a636-c2c5953c8993.lovable.app";
-    const res = await fetch(`${base}/api/public/hooks/run-daily`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""}` },
-    });
-    const body = await res.json().catch(() => ({}));
-    return { status: res.status, ...(body as Record<string, unknown>) };
+    return await runDaily();
   });
 
