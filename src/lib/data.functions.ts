@@ -5,6 +5,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertAllowed } from "@/lib/auth-guard";
+import { runDaily } from "@/lib/run-daily.server";
 
 export const listSources = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
