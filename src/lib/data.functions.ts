@@ -137,6 +137,12 @@ export const triggerRunNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     assertAllowed(context.claims as { email?: string });
-    return await runDaily();
+    try {
+      return await runDaily();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "run failed";
+      console.error("triggerRunNow failed:", e);
+      return { ok: false as const, error: msg };
+    }
   });
 
