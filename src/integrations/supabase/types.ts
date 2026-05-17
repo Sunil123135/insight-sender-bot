@@ -125,6 +125,7 @@ export type Database = {
           enabled: boolean
           id: number
           recipient_email: string
+          resend_from_address: string
           updated_at: string
         }
         Insert: {
@@ -133,6 +134,7 @@ export type Database = {
           enabled?: boolean
           id?: number
           recipient_email: string
+          resend_from_address?: string
           updated_at?: string
         }
         Update: {
@@ -141,6 +143,7 @@ export type Database = {
           enabled?: boolean
           id?: number
           recipient_email?: string
+          resend_from_address?: string
           updated_at?: string
         }
         Relationships: []

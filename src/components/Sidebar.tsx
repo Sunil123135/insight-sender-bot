@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Activity, Database, Calendar, Radio, LogOut } from "lucide-react";
+import { Activity, Database, Calendar, Radio, LogOut, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -7,6 +7,7 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: Activity },
   { to: "/sources", label: "Sources", icon: Database },
   { to: "/schedule", label: "Schedule", icon: Calendar },
+  { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function Sidebar() {

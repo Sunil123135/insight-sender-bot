@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SourcesRouteImport } from './routes/sources'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
@@ -18,6 +19,11 @@ import { Route as ApiPublicHooksRunDailyRouteImport } from './routes/api/public/
 const SourcesRoute = SourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScheduleRoute = ScheduleRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/schedule': typeof ScheduleRoute
+  '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
   '/api/public/hooks/run-daily': typeof ApiPublicHooksRunDailyRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/schedule': typeof ScheduleRoute
+  '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
   '/api/public/hooks/run-daily': typeof ApiPublicHooksRunDailyRoute
 }
@@ -60,6 +68,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/schedule': typeof ScheduleRoute
+  '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
   '/api/public/hooks/run-daily': typeof ApiPublicHooksRunDailyRoute
 }
@@ -69,15 +78,23 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/schedule'
+    | '/settings'
     | '/sources'
     | '/api/public/hooks/run-daily'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/schedule' | '/sources' | '/api/public/hooks/run-daily'
+  to:
+    | '/'
+    | '/login'
+    | '/schedule'
+    | '/settings'
+    | '/sources'
+    | '/api/public/hooks/run-daily'
   id:
     | '__root__'
     | '/'
     | '/login'
     | '/schedule'
+    | '/settings'
     | '/sources'
     | '/api/public/hooks/run-daily'
   fileRoutesById: FileRoutesById
@@ -86,6 +103,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
   ScheduleRoute: typeof ScheduleRoute
+  SettingsRoute: typeof SettingsRoute
   SourcesRoute: typeof SourcesRoute
   ApiPublicHooksRunDailyRoute: typeof ApiPublicHooksRunDailyRoute
 }
@@ -97,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/sources'
       fullPath: '/sources'
       preLoaderRoute: typeof SourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/schedule': {
@@ -134,19 +159,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
   ScheduleRoute: ScheduleRoute,
+  SettingsRoute: SettingsRoute,
   SourcesRoute: SourcesRoute,
   ApiPublicHooksRunDailyRoute: ApiPublicHooksRunDailyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
