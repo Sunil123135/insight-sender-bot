@@ -133,6 +133,49 @@ export const updateSchedule = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const getResendSettings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    assertAllowed(context.claims as { email?: string });
+    const { data, error } = await supabaseAdmin
+      .from("schedule_config")
+      .select("resend_from_address")
+      .eq("id", 1)
+      .single();
+    if (error) throw new Error(error.message);
+    return {
+      hasApiKey: !!process.env.RESEND_API_KEY,
+      fromAddress: data.resend_from_address as string,
+    };
+  });
+
+// Accept either a bare email ("brief@mail.example.com") or a display form
+// ("ScrapeSignal <brief@mail.example.com>").
+const FromAddressInput = z.object({
+  from_address: z
+    .string()
+    .trim()
+    .min(3)
+    .max(200)
+    .regex(
+      /^(?:[^<>]{1,100}\s)?<?[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+>?$/,
+      "Must be a valid email or 'Name <email@domain>' format",
+    ),
+});
+
+export const updateResendFromAddress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => FromAddressInput.parse(d))
+  .handler(async ({ data, context }) => {
+    assertAllowed(context.claims as { email?: string });
+    const { error } = await supabaseAdmin
+      .from("schedule_config")
+      .update({ resend_from_address: data.from_address, updated_at: new Date().toISOString() })
+      .eq("id", 1);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const triggerRunNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
