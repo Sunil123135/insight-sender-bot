@@ -159,7 +159,7 @@ export async function runDaily() {
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            from: "ScrapeSignal <onboarding@resend.dev>",
+            from: cfg.resend_from_address || "ScrapeSignal <onboarding@resend.dev>",
             to: [cfg.recipient_email],
             subject: `ScrapeSignal · ${dateLabel} · ${top.length} items`,
             html,
