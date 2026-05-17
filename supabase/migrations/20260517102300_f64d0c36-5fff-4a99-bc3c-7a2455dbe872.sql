@@ -1,0 +1,1 @@
+ALTER TABLE public.schedule_config ADD COLUMN IF NOT EXISTS resend_from_address text NOT NULL DEFAULT 'ScrapeSignal <onboarding@resend.dev>';
