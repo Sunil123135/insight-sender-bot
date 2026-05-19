@@ -27,18 +27,20 @@ export const Route = createFileRoute("/api/public/hooks/run-daily")({
             headers: { "content-type": "application/json" },
           });
         }
-        try {
-          const out = await runDaily();
-          return new Response(JSON.stringify(out), {
-            status: out.ok ? 200 : 500,
-            headers: { "content-type": "application/json" },
-          });
-        } catch (e) {
-          return new Response(
-            JSON.stringify({ ok: false, error: e instanceof Error ? e.message : "unknown" }),
-            { status: 500, headers: { "content-type": "application/json" } }
-          );
+        const promise = runDaily().catch((e) => {
+          console.error("runDaily cron failure:", e);
+        });
+        const ctx = (globalThis as { __cfCtx?: { waitUntil?: (p: Promise<unknown>) => void } })
+          .__cfCtx;
+        if (ctx?.waitUntil) {
+          ctx.waitUntil(promise);
+        } else {
+          void promise;
         }
+        return new Response(JSON.stringify({ ok: true, queued: true }), {
+          status: 202,
+          headers: { "content-type": "application/json" },
+        });
       },
       GET: async () =>
         new Response(
