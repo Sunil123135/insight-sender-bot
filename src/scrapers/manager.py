@@ -163,6 +163,7 @@ class ScraperManager:
             image_url=candidate.get("image_url"),
             author=candidate.get("author"),
             published_at=cast(datetime | None, candidate.get("published_at")),
+            scraped_at=datetime.now(UTC),
             relevance_score=score,
             content_hash=content_hash,
             raw_metadata=cast(dict[str, object], candidate.get("raw_metadata") or {}),
