@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+scrapesignal.log*
+dist/
+build/
+.neon
+node_modules/
+package-lock.json
+package.json
+.tools/

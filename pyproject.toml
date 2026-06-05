@@ -1,0 +1,88 @@
+[tool.poetry]
+name = "scrapesignal"
+version = "0.1.0"
+description = "Daily supply chain and AI intelligence pipeline."
+authors = ["ScrapeSignal Team"]
+packages = [{ include = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiosmtplib = "^3.0.2"
+alembic = "^1.13.3"
+anthropic = "^0.39.0"
+asyncpg = "^0.30.0"
+beautifulsoup4 = "^4.12.3"
+defusedxml = "^0.7.1"
+email-validator = "^2.2.0"
+httpx = "^0.27.2"
+jinja2 = "^3.1.4"
+pdfplumber = "^0.11.4"
+psycopg = { extras = ["binary"], version = "^3.2.9" }
+pydantic = "^2.9.2"
+pydantic-settings = "^2.6.1"
+python-dateutil = "^2.9.0.post0"
+python-json-logger = "^2.0.7"
+sendgrid = "^6.11.0"
+sqlalchemy = { extras = ["asyncio"], version = "^2.0.36" }
+tenacity = "^9.0.0"
+
+[tool.poetry.group.dev.dependencies]
+bandit = "^1.7.10"
+black = "^24.10.0"
+croniter = "^3.0.3"
+mypy = "^1.13.0"
+pytest = "^8.3.3"
+pytest-asyncio = "^0.24.0"
+pytest-cov = "^5.0.0"
+respx = "^0.21.1"
+ruff = "^0.7.3"
+types-python-dateutil = "^2.9.0.20241003"
+types-defusedxml = "^0.7.0.20240218"
+yamllint = "^1.35.1"
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "ASYNC", "S", "C4", "DTZ", "LOG", "PTH"]
+ignore = [
+    "S101"
+]
+
+[tool.mypy]
+python_version = "3.11"
+plugins = []
+strict = true
+warn_unused_configs = true
+warn_return_any = true
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "src/scrapers/firecrawl_scraper.py",
+    "src/scrapers/jina_scraper.py",
+    "src/scrapers/apify_scraper.py",
+    "src/scrapers/arxiv_scraper.py",
+    "src/processors/pdf_parser.py",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true

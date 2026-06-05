@@ -1,0 +1,89 @@
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+  Configure GitHub Actions secrets and trigger the first dry-run workflow.
+.DESCRIPTION
+  Reads values from .env and pushes them to the repository's GitHub Actions secrets.
+  Requires GitHub CLI (gh) authenticated: gh auth login
+#>
+param(
+    [string]$Repo = "",
+    [switch]$SkipWorkflowDispatch
+)
+
+$ErrorActionPreference = "Stop"
+$root = Split-Path -Parent $PSScriptRoot
+Set-Location $root
+
+function Get-GhPath {
+    $root = Split-Path -Parent $PSScriptRoot
+    $candidates = @(
+        (Join-Path $root ".tools\bin\gh.exe"),
+        "C:\Program Files\GitHub CLI\gh.exe",
+        "$env:LOCALAPPDATA\Programs\GitHub CLI\gh.exe"
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) { return $candidate }
+    }
+    $fromPath = Get-Command gh -ErrorAction SilentlyContinue
+    if ($fromPath) { return $fromPath.Source }
+    throw "GitHub CLI (gh) is not installed. Install from https://cli.github.com/ then run: gh auth login"
+}
+
+function Read-DotEnvValue {
+    param([string]$Name)
+    $line = Get-Content ".env" | Where-Object { $_ -match "^$Name=" } | Select-Object -First 1
+    if (-not $line) { return "" }
+    return ($line -replace "^$Name=", "").Trim('"')
+}
+
+$gh = Get-GhPath
+& $gh auth status | Out-Null
+
+if (-not $Repo) {
+    $remote = git remote get-url origin 2>$null
+    if ($remote) {
+        if ($remote -match "github\.com[:/](.+?)(?:\.git)?$") {
+            $Repo = $Matches[1]
+        }
+    }
+}
+if (-not $Repo) {
+    throw "Pass -Repo owner/name or add a git remote first."
+}
+
+$neonPooled = npx --yes neonctl connection-string production `
+    --project-id wispy-cloud-93669868 --pooled 2>$null
+if ($neonPooled) {
+    $databaseUrl = $neonPooled -replace "^postgresql://", "postgresql+psycopg://"
+    $databaseUrl = ($databaseUrl -split "&channel_binding")[0]
+} else {
+    $databaseUrl = Read-DotEnvValue "DATABASE_URL"
+}
+
+$secretMap = [ordered]@{
+    DATABASE_URL      = $databaseUrl
+    FIRECRAWL_API_KEY = Read-DotEnvValue "FIRECRAWL_API_KEY"
+    JINA_API_KEY      = Read-DotEnvValue "JINA_API_KEY"
+    APIFY_API_TOKEN   = Read-DotEnvValue "APIFY_API_TOKEN"
+    ANTHROPIC_API_KEY = Read-DotEnvValue "ANTHROPIC_API_KEY"
+    SENDGRID_API_KEY  = Read-DotEnvValue "SENDGRID_API_KEY"
+    SENDER_EMAIL      = Read-DotEnvValue "SENDER_EMAIL"
+    SLACK_WEBHOOK_URL = Read-DotEnvValue "SLACK_WEBHOOK_URL"
+}
+
+Write-Host "Configuring secrets for $Repo ..."
+foreach ($entry in $secretMap.GetEnumerator()) {
+    if ([string]::IsNullOrWhiteSpace($entry.Value)) {
+        Write-Host "Skipping empty secret: $($entry.Key)"
+        continue
+    }
+    $entry.Value | & $gh secret set $entry.Key --repo $Repo
+    Write-Host "Set $($entry.Key)"
+}
+
+if (-not $SkipWorkflowDispatch) {
+    Write-Host "Triggering workflow dispatch (dry_run=true) ..."
+    & $gh workflow run "daily-scrape.yml" --repo $Repo -f dry_run=true
+    Write-Host "Monitor with: gh run list --repo $Repo --workflow=daily-scrape.yml"
+}
