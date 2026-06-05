@@ -71,9 +71,10 @@ class ScraperManager:
             Candidate Article objects.
         """
         logger.info("Scraping %s sources", len(sources))
-        tasks = [self._scrape_source(session, source, run_id) for source in sources]
+        tasks = [self._scrape_source(source, run_id) for source in sources]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         articles: list[Article] = []
+        logs: list[ScrapeLog] = []
         for source, result in zip(sources, results, strict=True):
             if isinstance(result, Exception):
                 logger.error(
@@ -82,8 +83,12 @@ class ScraperManager:
                     result,
                     exc_info=True,
                 )
-            elif isinstance(result, list):
-                articles.extend(result)
+            elif isinstance(result, tuple):
+                log, scraped = result
+                logs.append(log)
+                articles.extend(scraped)
+        for log in logs:
+            session.add(log)
         unique = self._dedupe_articles(articles)
         saved = await upsert_articles(session, unique)
         await remember_hashes(session, [article.content_hash for article in unique])
@@ -94,19 +99,17 @@ class ScraperManager:
 
     async def _scrape_source(
         self,
-        session: AsyncSession,
         source: SourceConfig,
         run_id: str,
-    ) -> list[Article]:
-        """Scrape one source and write scrape log.
+    ) -> tuple[ScrapeLog, list[Article]]:
+        """Scrape one source without holding a database transaction.
 
         Args:
-            session: Active database session.
             source: Source configuration.
             run_id: Current run identifier.
 
         Returns:
-            Scored Article instances.
+            Scrape log and scored Article instances.
         """
         started = datetime.now(UTC)
         log = ScrapeLog(
@@ -115,7 +118,6 @@ class ScraperManager:
             status="running",
             started_at=started,
         )
-        session.add(log)
         scraper = self.scrapers.get(source.scraper_type, self.scrapers["firecrawl"])
         try:
             candidates = await scraper.scrape(source)
@@ -123,12 +125,12 @@ class ScraperManager:
             log.status = "success"
             log.articles_found = len(candidates)
             log.articles_saved = len(articles)
-            return articles
+            return log, articles
         except Exception as error:
             log.status = "failed"
             log.error_message = str(error)
             logger.error("Scraping failed for %s", source.source_key, exc_info=True)
-            return []
+            return log, []
         finally:
             completed = datetime.now(UTC)
             log.completed_at = completed

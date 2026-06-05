@@ -25,7 +25,7 @@ from datetime import UTC, datetime
 
 # Local
 from src.config import settings
-from src.db.models import EmailLog
+from src.db.models import Article, EmailLog
 from src.db.repository import (
     get_enabled_keywords,
     get_enabled_sources,
@@ -68,25 +68,34 @@ class ScrapeSignalOrchestrator:
         try:
             if settings.ENVIRONMENT == "production" and not settings.DRY_RUN:
                 settings.validate_for_production()
+
             async with get_db() as session:
                 await purge_expired_hashes(session)
                 keywords = await get_enabled_keywords(session)
                 sources = await get_enabled_sources(session)
+
+            # Scraping performs long network I/O; keep it outside an open transaction
+            # so Neon does not terminate idle-in-transaction sessions.
+            async with get_db() as session:
                 manager = ScraperManager(RelevanceScorer(keywords))
                 await manager.scrape_all(session, sources, run_id)
-                articles = await select_top_articles(session)
-                await self.summarizer.summarize_articles(articles)
-                html = self.email_generator.render(articles, run_id, started)
-                validation = self.email_validator.validate(html)
-                if validation["link_issues"] or validation["alt_text_issues"]:
-                    logger.warning("Email validation issues: %s", validation)
-                subject = self.email_generator.subject(started)
-                result = await self.email_sender.send(
-                    str(settings.RECIPIENT_EMAIL),
-                    subject,
-                    html,
-                    len(articles),
-                )
+
+            articles = await self.summarizer.summarize_articles(
+                await self._load_top_articles()
+            )
+            html = self.email_generator.render(articles, run_id, started)
+            validation = self.email_validator.validate(html)
+            if validation["link_issues"] or validation["alt_text_issues"]:
+                logger.warning("Email validation issues: %s", validation)
+            subject = self.email_generator.subject(started)
+            result = await self.email_sender.send(
+                str(settings.RECIPIENT_EMAIL),
+                subject,
+                html,
+                len(articles),
+            )
+
+            async with get_db() as session:
                 session.add(
                     EmailLog(
                         run_id=run_id,
@@ -112,6 +121,15 @@ class ScrapeSignalOrchestrator:
             )
             await send_slack_alert(f"Run {run_id} failed: {error}", severity="critical")
             return 1
+
+    async def _load_top_articles(self) -> list[Article]:
+        """Load ranked articles for the daily brief.
+
+        Returns:
+            Top articles selected from the database.
+        """
+        async with get_db() as session:
+            return await select_top_articles(session)
 
     def _new_run_id(self) -> str:
         """Create unique run identifier.
