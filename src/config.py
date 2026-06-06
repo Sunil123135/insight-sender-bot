@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     EMAIL_SUBJECT_PREFIX: str = "ScrapeSignal Daily Brief"
     ARTICLES_PER_EMAIL: int = Field(default=20, ge=1, le=50)
     POWER_AUTOMATE_WEBHOOK_URL: str = ""
+    POWER_AUTOMATE_PAYLOAD_FORMAT: Literal["html", "json"] = "html"
 
     DELIVERY_TIME_IST: str = "07:00"
     DELIVERY_TIME_UTC: str = "01:30"

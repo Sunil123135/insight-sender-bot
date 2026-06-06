@@ -11,6 +11,16 @@ Dependencies:
 Used by:
     - src.main (orchestrator)
     - scripts/test_email_delivery.py
+
+Power Automate mapping (recommended, html mode):
+    - Subject: @triggerOutputs()?['headers']['X-Email-Subject']
+    - Body: @triggerBody()
+    - Is HTML: Yes
+
+Power Automate mapping (json mode):
+    - Subject: @triggerBody()?['subject']
+    - Body: @triggerBody()?['body']
+    - Is HTML: Yes
 """
 
 # Standard library
@@ -25,6 +35,10 @@ from src.config import settings
 from src.utils.retry import async_retry
 
 logger = logging.getLogger(__name__)
+
+SUBJECT_HEADER = "X-Email-Subject"
+ARTICLE_COUNT_HEADER = "X-Article-Count"
+RUN_ID_HEADER = "X-Run-Id"
 
 
 class BriefDeliveryResult(TypedDict):
@@ -79,25 +93,34 @@ class BriefSender:
                 "error": "POWER_AUTOMATE_WEBHOOK_URL missing",
             }
 
-        payload = {
-            "subject": subject,
-            "html_content": html_content,
-            "article_count": article_count,
-            "run_id": run_id,
-        }
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(60.0, connect=10.0)
         ) as client:
-            response = await client.post(webhook_url, json=payload)
+            if settings.POWER_AUTOMATE_PAYLOAD_FORMAT == "json":
+                response = await client.post(
+                    webhook_url,
+                    json=self._json_payload(
+                        subject, html_content, article_count, run_id
+                    ),
+                )
+            else:
+                response = await client.post(
+                    webhook_url,
+                    content=html_content.encode("utf-8"),
+                    headers=self._html_headers(
+                        subject, html_content, article_count, run_id
+                    ),
+                )
             response.raise_for_status()
 
         delivery_id = response.headers.get("x-ms-request-id") or response.headers.get(
             "x-request-id"
         )
         logger.info(
-            "Power Automate accepted brief status=%s delivery_id=%s",
+            "Power Automate accepted brief status=%s delivery_id=%s format=%s",
             response.status_code,
             delivery_id,
+            settings.POWER_AUTOMATE_PAYLOAD_FORMAT,
         )
         return {
             "success": True,
@@ -105,3 +128,61 @@ class BriefSender:
             "status_code": response.status_code,
             "error": None,
         }
+
+    def _html_headers(
+        self,
+        subject: str,
+        html_content: str,
+        article_count: int,
+        run_id: str | None,
+    ) -> dict[str, str]:
+        """Build headers for raw HTML webhook delivery.
+
+        Args:
+            subject: Email subject.
+            html_content: HTML body.
+            article_count: Number of articles.
+            run_id: Optional run id.
+
+        Returns:
+            HTTP request headers.
+        """
+        headers = {
+            "Content-Type": "text/html; charset=utf-8",
+            SUBJECT_HEADER: subject,
+            ARTICLE_COUNT_HEADER: str(article_count),
+        }
+        if run_id:
+            headers[RUN_ID_HEADER] = run_id
+        if html_content.startswith("<!DOCTYPE") or html_content.startswith("<html"):
+            headers["Content-Type"] = "text/html; charset=utf-8"
+        return headers
+
+    def _json_payload(
+        self,
+        subject: str,
+        html_content: str,
+        article_count: int,
+        run_id: str | None,
+    ) -> dict[str, object]:
+        """Build JSON payload for Power Automate email mapping.
+
+        Args:
+            subject: Email subject.
+            html_content: HTML body.
+            article_count: Number of articles.
+            run_id: Optional run id.
+
+        Returns:
+            JSON-serializable webhook body.
+        """
+        payload: dict[str, object] = {
+            "subject": subject,
+            "body": html_content,
+            "html_content": html_content,
+            "isHtml": True,
+            "article_count": article_count,
+        }
+        if run_id:
+            payload["run_id"] = run_id
+        return payload
