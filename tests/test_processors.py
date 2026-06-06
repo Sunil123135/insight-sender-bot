@@ -60,8 +60,11 @@ def test_pdf_extract_text_from_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_summarizer_dry_run_fallback() -> None:
+async def test_summarizer_dry_run_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     """Dry run summarizer uses deterministic fallback."""
+    from src.config import settings
+
+    monkeypatch.setattr(settings, "DRY_RUN", True)
     article = Article(
         source_key="test",
         source_name="Test",
@@ -117,3 +120,5 @@ def test_summarizer_prompt_contains_context() -> None:
     prompt = Summarizer()._prompt(article)
     assert "AI Supply Chain" in prompt
     assert "Body" in prompt
+    assert "Supply Chain Innovation Advisor" in prompt
+    assert "Executive Summary" in prompt

@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     GEMINI_MODEL_FALLBACKS: str = (
         "gemini-2.5-flash,gemini-3-flash-preview,gemini-2.0-flash"
     )
-    LLM_MAX_TOKENS: int = Field(default=256, ge=50, le=8192)
+    LLM_MAX_TOKENS: int = Field(default=2048, ge=50, le=8192)
     LLM_REQUESTS_PER_MINUTE: int = Field(default=20, ge=1, le=1000)
 
     SLACK_WEBHOOK_URL: SecretStr = SecretStr("")

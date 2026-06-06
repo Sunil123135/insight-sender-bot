@@ -22,6 +22,7 @@ import httpx
 # Local
 from src.config import settings
 from src.db.models import Article
+from src.prompts.summary import build_summary_prompt
 from src.utils.retry import async_retry
 from src.utils.text import sanitize_postgres_text
 
@@ -111,7 +112,7 @@ class Summarizer:
             "Authorization": f"Bearer {settings.GROQ_API_KEY.get_secret_value()}",
             "Content-Type": "application/json",
         }
-        timeout = httpx.Timeout(45.0, connect=5.0)
+        timeout = httpx.Timeout(90.0, connect=5.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(GROQ_CHAT_URL, json=payload, headers=headers)
             response.raise_for_status()
@@ -137,7 +138,7 @@ class Summarizer:
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"maxOutputTokens": settings.LLM_MAX_TOKENS},
         }
-        timeout = httpx.Timeout(45.0, connect=5.0)
+        timeout = httpx.Timeout(90.0, connect=5.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(url, params=params, json=payload)
             response.raise_for_status()
@@ -170,9 +171,8 @@ class Summarizer:
             Prompt text.
         """
         body = article.body[:8_000]
-        return (
-            "Summarize this article for a Senior Manager at QuidelOrtho focused on "
-            "supply chain and AI. Return 2 concise sentences: why it matters and "
-            "what to watch next.\n\n"
-            f"Title: {article.title}\nSource: {article.source_name}\nBody:\n{body}"
+        return build_summary_prompt(
+            title=article.title,
+            source_name=article.source_name,
+            body=body,
         )
