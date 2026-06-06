@@ -1,5 +1,18 @@
 # ScrapeSignal Deployment
 
+## Vercel
+
+This project is **not** a Vite or Next.js web app. The daily pipeline runs on
+GitHub Actions. If the repo is linked to Vercel, use the repo `vercel.json`
+(static `public/` output only). Do **not** set the Vercel build command to
+`vite build` — there is no frontend build in this repository.
+
+In the Vercel dashboard, confirm:
+
+- Framework Preset: **Other**
+- Build Command: empty (or use repo `vercel.json`)
+- Output Directory: `public`
+
 ## GitHub Actions
 
 The workflow is `.github/workflows/daily-scrape.yml`. It runs at:
