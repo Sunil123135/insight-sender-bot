@@ -12,7 +12,9 @@ import pytest
 from src.db.models import SourceConfig
 from src.scrapers.apify_scraper import ApifyScraper
 from src.scrapers.arxiv_scraper import ArxivScraper
+from src.scrapers.chain_scraper import ChainScraper
 from src.scrapers.manager import ScraperManager
+from src.scrapers.native_scraper import NativeScraper
 
 
 def test_apify_normalize() -> None:
@@ -22,6 +24,40 @@ def test_apify_normalize() -> None:
     article = ApifyScraper()._normalize(row, source)
     assert article["title"] == "Title"
     assert article["body"] == "Body"
+
+
+def test_native_discover_article_urls() -> None:
+    """Native scraper discovers article-like links from homepage HTML."""
+    html = """
+    <html><body>
+      <a href="/news/2026/ai-supply-chain">Article</a>
+      <a href="/about">About</a>
+      <a href="https://other.com/news/x">External</a>
+    </body></html>
+    """
+    urls = NativeScraper()._discover_article_urls("https://example.com/", html)
+    assert urls[0].endswith("/news/2026/ai-supply-chain")
+
+
+@pytest.mark.asyncio
+async def test_chain_scraper_uses_first_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Chain scraper returns native results when native succeeds."""
+    source = SourceConfig(source_key="s", name="S", url="https://example.com")
+    chain = ChainScraper()
+
+    async def native_ok(source: SourceConfig) -> list[dict[str, object]]:
+        return [{"title": "T", "url": "https://example.com/a", "body": "word " * 30}]
+
+    async def jina_fail(source: SourceConfig) -> list[dict[str, object]]:
+        raise RuntimeError("should not run")
+
+    monkeypatch.setattr(chain._providers[0][1], "scrape", native_ok)
+    monkeypatch.setattr(chain._providers[1][1], "scrape", jina_fail)
+    results = await chain.scrape(source)
+    assert len(results) == 1
+    assert results[0]["raw_metadata"]["chain_used"] == "native"
 
 
 @pytest.mark.asyncio

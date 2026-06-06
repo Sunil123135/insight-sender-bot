@@ -113,7 +113,7 @@ class SourceConfig(Base):
     source_key: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(200))
     url: Mapped[str] = mapped_column(String(2048))
-    scraper_type: Mapped[str] = mapped_column(String(50), default="firecrawl")
+    scraper_type: Mapped[str] = mapped_column(String(50), default="chain")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     priority: Mapped[int] = mapped_column(Integer, default=100)
     max_articles: Mapped[int] = mapped_column(Integer, default=150)

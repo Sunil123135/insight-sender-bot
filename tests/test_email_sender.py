@@ -1,6 +1,6 @@
 """
 Module: tests/test_email_sender.py
-Purpose: Unit tests for async SendGrid sender
+Purpose: Unit tests for async Power Automate brief delivery
 Author: ScrapeSignal Team
 Created: 2026-05-10
 """
@@ -9,12 +9,12 @@ Created: 2026-05-10
 import pytest
 
 # Local
-from src.email.sender import EmailSender
+from src.email.sender import BriefSender
 
 
 @pytest.mark.asyncio
-async def test_email_sender_dry_run() -> None:
+async def test_brief_sender_dry_run() -> None:
     """Dry run returns success without network."""
-    result = await EmailSender().send("test@example.com", "Subject", "<p>Body</p>", 1)
+    result = await BriefSender().send("Subject", "<p>Body</p>", 1, "run-1")
     assert result["success"] is True
-    assert result["email_id"] == "dry-run"
+    assert result["delivery_id"] == "dry-run"

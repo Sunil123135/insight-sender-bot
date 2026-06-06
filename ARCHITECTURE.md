@@ -6,14 +6,14 @@ Pipeline:
 flowchart LR
   A["GitHub Actions 01:30 UTC"] --> B["ScrapeSignalOrchestrator"]
   B --> C["ScraperManager"]
-  C --> D["Firecrawl/Jina/Apify/arXiv"]
+  C --> D["Native -> Jina -> Apify / arXiv"]
   C --> E["Extractor + PDFParser"]
   E --> F["Deduplicator + RelevanceScorer"]
   F --> G["Neon PostgreSQL"]
   G --> H["Top 20 Articles"]
-  H --> I["Claude Summarizer"]
-  I --> J["Jinja Email"]
-  J --> K["SendGrid"]
+  H --> I["Groq -> Gemini Summarizer"]
+  I --> J["Jinja HTML Brief"]
+  J --> K["Power Automate Webhook"]
   B --> L["Slack Alerts"]
 ```
 

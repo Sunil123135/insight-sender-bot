@@ -20,7 +20,7 @@ from functools import lru_cache
 from typing import Literal
 
 # Third-party
-from pydantic import EmailStr, Field, SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,11 +57,13 @@ class Settings(BaseSettings):
     DATABASE_MAX_OVERFLOW: int = Field(default=10, ge=0, le=50)
     DATABASE_POOL_RECYCLE_SECONDS: int = Field(default=3600, ge=300)
 
-    RECIPIENT_EMAIL: EmailStr = "sunil.lalwani@quidelortho.com"
-    SENDER_EMAIL: EmailStr = "scrapesignal@example.com"
-    SENDER_NAME: str = "ScrapeSignal"
     EMAIL_SUBJECT_PREFIX: str = "ScrapeSignal Daily Brief"
     ARTICLES_PER_EMAIL: int = Field(default=20, ge=1, le=50)
+    POWER_AUTOMATE_WEBHOOK_URL: str = (
+        "https://default6e63ffc0c2fc4cc4b6c4666b2ce89d.92.environment.api.powerplatform.com:443/"
+        "powerautomate/automations/direct/workflows/84e4ad465dca49bbb808d622e1bcd704/"
+        "triggers/manual/paths/invoke?api-version=1"
+    )
 
     DELIVERY_TIME_IST: str = "07:00"
     DELIVERY_TIME_UTC: str = "01:30"
@@ -78,18 +80,22 @@ class Settings(BaseSettings):
     SCRAPE_CONCURRENCY: int = Field(default=14, ge=1, le=50)
     PDF_TIMEOUT_SECONDS: float = Field(default=30.0, ge=1.0, le=120.0)
     MAX_ARTICLES_PER_SOURCE: int = Field(default=150, ge=1, le=1000)
+    NATIVE_MAX_ARTICLE_PAGES: int = Field(default=15, ge=1, le=50)
     USER_AGENT: str = "ScrapeSignal/0.1 (+https://github.com/scrapesignal)"
 
-    FIRECRAWL_API_KEY: SecretStr = SecretStr("")
     JINA_API_KEY: SecretStr = SecretStr("")
     APIFY_API_TOKEN: SecretStr = SecretStr("")
-    ANTHROPIC_API_KEY: SecretStr = SecretStr("")
-    CLAUDE_MODEL: str = "claude-3-5-sonnet-20241022"
-    CLAUDE_MAX_TOKENS: int = Field(default=1200, ge=100, le=8192)
-    CLAUDE_REQUESTS_PER_MINUTE: int = Field(default=20, ge=1, le=1000)
-    USE_BATCH_API: bool = False
-    BATCH_MIN_ARTICLES: int = Field(default=50, ge=1, le=1000)
-    SENDGRID_API_KEY: SecretStr = SecretStr("")
+    APIFY_ACTOR_ID: str = "apify~website-content-crawler"
+    APIFY_RUN_TIMEOUT_SECONDS: float = Field(default=300.0, ge=60.0, le=600.0)
+
+    GROQ_API_KEY: SecretStr = SecretStr("")
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GEMINI_API_KEY: SecretStr = SecretStr("")
+    GEMINI_MODEL_FALLBACKS: str = (
+        "gemini-2.5-flash,gemini-3-flash-preview,gemini-2.0-flash"
+    )
+    LLM_MAX_TOKENS: int = Field(default=256, ge=50, le=8192)
+    LLM_REQUESTS_PER_MINUTE: int = Field(default=20, ge=1, le=1000)
 
     SLACK_WEBHOOK_URL: SecretStr = SecretStr("")
     SLACK_ALERT_SEVERITY_THRESHOLD: Literal["info", "warning", "error", "critical"] = (
@@ -174,8 +180,6 @@ class Settings(BaseSettings):
         Raises:
             ValueError: If core delivery or scoring constants drift from spec.
         """
-        if self.RECIPIENT_EMAIL != "sunil.lalwani@quidelortho.com":
-            raise ValueError("RECIPIENT_EMAIL must be sunil.lalwani@quidelortho.com")
         if self.ARTICLES_PER_EMAIL != 20:
             raise ValueError("ARTICLES_PER_EMAIL must be 20")
         if self.MIN_RELEVANCE_SCORE != 70.0:
@@ -193,6 +197,18 @@ class Settings(BaseSettings):
         """
         return bool(value.get_secret_value().strip())
 
+    def gemini_fallback_models(self) -> list[str]:
+        """Return configured Gemini fallback model ids in priority order.
+
+        Returns:
+            Gemini model ids.
+        """
+        return [
+            model.strip()
+            for model in self.GEMINI_MODEL_FALLBACKS.split(",")
+            if model.strip()
+        ]
+
     def validate_for_production(self) -> None:
         """Validate settings required for a live production pipeline run.
 
@@ -201,18 +217,13 @@ class Settings(BaseSettings):
                 missing.
         """
         missing: list[str] = []
-        required_secrets: dict[str, SecretStr] = {
-            "FIRECRAWL_API_KEY": self.FIRECRAWL_API_KEY,
-            "ANTHROPIC_API_KEY": self.ANTHROPIC_API_KEY,
-            "SENDGRID_API_KEY": self.SENDGRID_API_KEY,
-        }
+        if not self.secret_is_set(self.GROQ_API_KEY) and not self.secret_is_set(
+            self.GEMINI_API_KEY
+        ):
+            missing.append("GROQ_API_KEY or GEMINI_API_KEY")
 
-        for name, secret in required_secrets.items():
-            if not self.secret_is_set(secret):
-                missing.append(name)
-
-        if self.SENDER_EMAIL == "scrapesignal@example.com":
-            missing.append("SENDER_EMAIL")
+        if not self.POWER_AUTOMATE_WEBHOOK_URL.strip():
+            missing.append("POWER_AUTOMATE_WEBHOOK_URL")
 
         if missing:
             joined = ", ".join(sorted(missing))

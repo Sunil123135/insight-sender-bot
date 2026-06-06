@@ -45,7 +45,6 @@ class JinaScraper(BaseScraper):
         Returns:
             Normalized article candidates.
         """
-        reader_url = "https://r.jina.ai/http://r.jina.ai/http://example.invalid"
         reader_url = f"https://r.jina.ai/http://{source.url.removeprefix('https://').removeprefix('http://')}"
         headers = {"User-Agent": settings.USER_AGENT}
         if settings.secret_is_set(settings.JINA_API_KEY):

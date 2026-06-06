@@ -1,15 +1,15 @@
 """
 Module: src/processors/summarizer.py
-Purpose: Summarize selected articles using Anthropic Claude API
+Purpose: Summarize selected articles using Groq with Gemini fallbacks
 Author: ScrapeSignal Team
 Created: 2026-05-10
 
 Dependencies:
-    - httpx (async Anthropic API calls)
-    - src.config.py (Claude settings)
+    - httpx (async LLM API calls)
+    - src.config.py (LLM settings)
 
 Used by:
-    - src.main (email article preparation)
+    - src.main (brief article preparation)
 """
 
 # Standard library
@@ -26,15 +26,18 @@ from src.utils.retry import async_retry
 
 logger = logging.getLogger(__name__)
 
-ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
+GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+GEMINI_GENERATE_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
 
 
 class Summarizer:
-    """Claude-powered article summarizer."""
+    """Groq-first summarizer with Gemini Flash fallbacks."""
 
     def __init__(self) -> None:
         """Initialize summarizer rate limiter."""
-        self._semaphore = asyncio.Semaphore(settings.CLAUDE_REQUESTS_PER_MINUTE)
+        self._semaphore = asyncio.Semaphore(settings.LLM_REQUESTS_PER_MINUTE)
 
     async def summarize_articles(self, articles: list[Article]) -> list[Article]:
         """Summarize articles concurrently with rate limiting.
@@ -57,9 +60,8 @@ class Summarizer:
                 article.summary = str(result)
         return articles
 
-    @async_retry(exceptions=(httpx.HTTPError, httpx.TimeoutException))
     async def summarize_article(self, article: Article) -> str:
-        """Summarize a single article through Claude.
+        """Summarize a single article through Groq then Gemini fallbacks.
 
         Args:
             article: Article to summarize.
@@ -67,35 +69,82 @@ class Summarizer:
         Returns:
             Concise business summary.
         """
-        if not settings.secret_is_set(settings.ANTHROPIC_API_KEY) or settings.DRY_RUN:
+        if settings.DRY_RUN:
             return self.fallback_summary(article)
 
+        prompt = self._prompt(article)
         async with self._semaphore:
-            payload = {
-                "model": settings.CLAUDE_MODEL,
-                "max_tokens": settings.CLAUDE_MAX_TOKENS,
-                "messages": [{"role": "user", "content": self._prompt(article)}],
-            }
-            headers = {
-                "x-api-key": settings.ANTHROPIC_API_KEY.get_secret_value(),
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            }
-            timeout = httpx.Timeout(45.0, connect=5.0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(
-                    ANTHROPIC_MESSAGES_URL, json=payload, headers=headers
-                )
-                response.raise_for_status()
-                data = response.json()
-                usage = data.get("usage", {})
-                logger.info(
-                    "Claude summary usage input_tokens=%s output_tokens=%s",
-                    usage.get("input_tokens"),
-                    usage.get("output_tokens"),
-                )
-                content = data["content"][0]["text"]
-                return str(content).strip()
+            if settings.secret_is_set(settings.GROQ_API_KEY):
+                try:
+                    return await self._summarize_with_groq(prompt)
+                except Exception as error:
+                    logger.warning("Groq summary failed: %s", error)
+
+            for model in settings.gemini_fallback_models():
+                if not settings.secret_is_set(settings.GEMINI_API_KEY):
+                    break
+                try:
+                    return await self._summarize_with_gemini(prompt, model)
+                except Exception as error:
+                    logger.warning("Gemini summary failed for %s: %s", model, error)
+
+        return self.fallback_summary(article)
+
+    @async_retry(exceptions=(httpx.HTTPError, httpx.TimeoutException))
+    async def _summarize_with_groq(self, prompt: str) -> str:
+        """Summarize through Groq chat completions API.
+
+        Args:
+            prompt: Prompt text.
+
+        Returns:
+            Generated summary.
+        """
+        payload = {
+            "model": settings.GROQ_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": settings.LLM_MAX_TOKENS,
+            "temperature": 0.2,
+        }
+        headers = {
+            "Authorization": f"Bearer {settings.GROQ_API_KEY.get_secret_value()}",
+            "Content-Type": "application/json",
+        }
+        timeout = httpx.Timeout(45.0, connect=5.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(GROQ_CHAT_URL, json=payload, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+        content = data["choices"][0]["message"]["content"]
+        logger.info("Groq summary generated with model=%s", settings.GROQ_MODEL)
+        return str(content).strip()
+
+    @async_retry(exceptions=(httpx.HTTPError, httpx.TimeoutException))
+    async def _summarize_with_gemini(self, prompt: str, model: str) -> str:
+        """Summarize through Gemini generateContent API.
+
+        Args:
+            prompt: Prompt text.
+            model: Gemini model id.
+
+        Returns:
+            Generated summary.
+        """
+        url = GEMINI_GENERATE_URL.format(model=model)
+        params = {"key": settings.GEMINI_API_KEY.get_secret_value()}
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": settings.LLM_MAX_TOKENS},
+        }
+        timeout = httpx.Timeout(45.0, connect=5.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(url, params=params, json=payload)
+            response.raise_for_status()
+            data = response.json()
+        parts = data["candidates"][0]["content"]["parts"]
+        text = "".join(str(part.get("text", "")) for part in parts)
+        logger.info("Gemini summary generated with model=%s", model)
+        return text.strip()
 
     def fallback_summary(self, article: Article) -> str:
         """Create deterministic fallback summary for dry runs or API failures.
@@ -111,7 +160,7 @@ class Summarizer:
         return excerpt or article.title
 
     def _prompt(self, article: Article) -> str:
-        """Build Claude prompt for a supply chain executive brief.
+        """Build summary prompt for a supply chain executive brief.
 
         Args:
             article: Article to summarize.

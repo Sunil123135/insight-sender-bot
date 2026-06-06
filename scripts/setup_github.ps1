@@ -62,14 +62,13 @@ if ($neonPooled) {
 }
 
 $secretMap = [ordered]@{
-    DATABASE_URL      = $databaseUrl
-    FIRECRAWL_API_KEY = Read-DotEnvValue "FIRECRAWL_API_KEY"
-    JINA_API_KEY      = Read-DotEnvValue "JINA_API_KEY"
-    APIFY_API_TOKEN   = Read-DotEnvValue "APIFY_API_TOKEN"
-    ANTHROPIC_API_KEY = Read-DotEnvValue "ANTHROPIC_API_KEY"
-    SENDGRID_API_KEY  = Read-DotEnvValue "SENDGRID_API_KEY"
-    SENDER_EMAIL      = Read-DotEnvValue "SENDER_EMAIL"
-    SLACK_WEBHOOK_URL = Read-DotEnvValue "SLACK_WEBHOOK_URL"
+    DATABASE_URL               = $databaseUrl
+    JINA_API_KEY               = Read-DotEnvValue "JINA_API_KEY"
+    APIFY_API_TOKEN            = Read-DotEnvValue "APIFY_API_TOKEN"
+    GROQ_API_KEY               = Read-DotEnvValue "GROQ_API_KEY"
+    GEMINI_API_KEY             = Read-DotEnvValue "GEMINI_API_KEY"
+    POWER_AUTOMATE_WEBHOOK_URL = Read-DotEnvValue "POWER_AUTOMATE_WEBHOOK_URL"
+    SLACK_WEBHOOK_URL          = Read-DotEnvValue "SLACK_WEBHOOK_URL"
 }
 
 Write-Host "Configuring secrets for $Repo ..."

@@ -30,8 +30,9 @@ from src.processors.scorer import RelevanceScorer
 from src.scrapers.apify_scraper import ApifyScraper
 from src.scrapers.arxiv_scraper import ArxivScraper
 from src.scrapers.base import BaseScraper, ScrapedArticle
-from src.scrapers.firecrawl_scraper import FirecrawlScraper
+from src.scrapers.chain_scraper import ChainScraper
 from src.scrapers.jina_scraper import JinaScraper
+from src.scrapers.native_scraper import NativeScraper
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,8 @@ class ScraperManager:
         self.scorer = scorer or RelevanceScorer()
         self.deduplicator = Deduplicator()
         self.scrapers: dict[str, BaseScraper] = {
-            "firecrawl": FirecrawlScraper(),
+            "chain": ChainScraper(),
+            "native": NativeScraper(),
             "jina": JinaScraper(),
             "apify": ApifyScraper(),
             "arxiv": ArxivScraper(),
@@ -118,7 +120,7 @@ class ScraperManager:
             status="running",
             started_at=started,
         )
-        scraper = self.scrapers.get(source.scraper_type, self.scrapers["firecrawl"])
+        scraper = self.scrapers.get(source.scraper_type, self.scrapers["chain"])
         try:
             candidates = await scraper.scrape(source)
             articles = [self._to_article(source, candidate) for candidate in candidates]

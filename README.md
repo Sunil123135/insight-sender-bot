@@ -2,7 +2,7 @@
 
 ScrapeSignal is a production-oriented daily intelligence pipeline for Supply Chain + AI.
 It scrapes configured industry sources, scores and deduplicates articles, summarizes the
-top results, and sends a daily brief to `sunil.lalwani@quidelortho.com`.
+top results, and delivers the daily brief to Power Automate.
 
 ## Quick Start
 
@@ -59,16 +59,29 @@ with `dry_run=true` after updating the `DATABASE_URL` secret.
 ## Required Production Secrets
 
 - `DATABASE_URL` (Neon pooled URL with `sslmode=require`)
-- `FIRECRAWL_API_KEY`
-- `ANTHROPIC_API_KEY`
-- `SENDGRID_API_KEY`
-- `SENDER_EMAIL`
+- `GROQ_API_KEY` or `GEMINI_API_KEY` (Groq primary, Gemini fallback)
+- `POWER_AUTOMATE_WEBHOOK_URL`
 
 Optional but recommended:
 
-- `JINA_API_KEY`
-- `APIFY_API_TOKEN`
+- `JINA_API_KEY` (fallback scraper in native -> Jina -> Apify chain)
+- `APIFY_API_TOKEN` (final scraper fallback)
+- `GEMINI_API_KEY` (LLM fallback when Groq is unavailable)
 - `SLACK_WEBHOOK_URL`
+
+## Scraper Chain
+
+Sources use `scraper_type=chain` by default:
+
+1. **Native** — built-in httpx + BeautifulSoup scraper (no API key)
+2. **Jina Reader** — if native content is too thin
+3. **Apify** — if Jina also fails
+
+## LLM Summarization
+
+1. **Groq** (`GROQ_MODEL=llama-3.3-70b-versatile`)
+2. **Gemini fallbacks** (`gemini-2.5-flash`, `gemini-3-flash-preview`, `gemini-2.0-flash`)
+3. **Extractive fallback** — first 240 characters of article body
 
 ## Quality Gates
 

@@ -35,7 +35,7 @@ from src.db.repository import (
 )
 from src.db.session import get_db
 from src.email.generator import EmailGenerator
-from src.email.sender import EmailSender
+from src.email.sender import BriefSender
 from src.email.validator import EmailValidator
 from src.logger import setup_logging
 from src.processors.scorer import RelevanceScorer
@@ -53,7 +53,7 @@ class ScrapeSignalOrchestrator:
         """Initialize orchestrator dependencies."""
         self.email_generator = EmailGenerator()
         self.email_validator = EmailValidator()
-        self.email_sender = EmailSender()
+        self.brief_sender = BriefSender()
         self.summarizer = Summarizer()
 
     async def run(self) -> int:
@@ -88,22 +88,22 @@ class ScrapeSignalOrchestrator:
             if validation["link_issues"] or validation["alt_text_issues"]:
                 logger.warning("Email validation issues: %s", validation)
             subject = self.email_generator.subject(started)
-            result = await self.email_sender.send(
-                str(settings.RECIPIENT_EMAIL),
+            result = await self.brief_sender.send(
                 subject,
                 html,
                 len(articles),
+                run_id,
             )
 
             async with get_db() as session:
                 session.add(
                     EmailLog(
                         run_id=run_id,
-                        recipient_email=str(settings.RECIPIENT_EMAIL),
+                        recipient_email="power-automate-webhook",
                         subject=subject,
                         article_count=len(articles),
                         status="success" if result["success"] else "failed",
-                        sendgrid_message_id=result["email_id"],
+                        sendgrid_message_id=result["delivery_id"],
                         error_message=result["error"],
                         sent_at=(datetime.now(UTC) if result["success"] else None),
                     ),

@@ -1,12 +1,12 @@
 """
 Module: src/email/sender.py
-Purpose: Send ScrapeSignal HTML emails through SendGrid
+Purpose: Deliver ScrapeSignal HTML briefs through a Power Automate webhook
 Author: ScrapeSignal Team
 Created: 2026-05-10
 
 Dependencies:
-    - httpx (async SendGrid API call)
-    - src.config.py (email settings)
+    - httpx (async webhook POST)
+    - src.config.py (delivery settings)
 
 Used by:
     - src.main (orchestrator)
@@ -26,93 +26,82 @@ from src.utils.retry import async_retry
 
 logger = logging.getLogger(__name__)
 
-SENDGRID_SEND_URL = "https://api.sendgrid.com/v3/mail/send"
 
-
-class EmailSendResult(TypedDict):
-    """Result from email sending."""
+class BriefDeliveryResult(TypedDict):
+    """Result from brief delivery."""
 
     success: bool
-    email_id: str | None
+    delivery_id: str | None
     status_code: int | None
     error: str | None
 
 
-class EmailSender:
-    """Send HTML email through SendGrid."""
+class BriefSender:
+    """Send the daily HTML brief to a Power Automate webhook."""
 
     @async_retry(exceptions=(httpx.HTTPError, httpx.TimeoutException))
     async def send(
         self,
-        recipient: str,
         subject: str,
         html_content: str,
         article_count: int,
-    ) -> EmailSendResult:
-        """Send email.
+        run_id: str | None = None,
+    ) -> BriefDeliveryResult:
+        """POST the HTML brief to Power Automate.
 
         Args:
-            recipient: Recipient email address.
-            subject: Email subject.
+            subject: Brief subject line.
             html_content: HTML body.
             article_count: Number of articles included.
+            run_id: Optional pipeline run identifier.
 
         Returns:
-            Send result.
+            Delivery result.
         """
-        masked = self._mask_email(recipient)
-        logger.info("Sending email to %s with %s articles", masked, article_count)
+        logger.info(
+            "Delivering brief to Power Automate with %s articles", article_count
+        )
         if settings.DRY_RUN:
-            logger.info("DRY_RUN=True; email not sent")
+            logger.info("DRY_RUN=True; brief not delivered")
             return {
                 "success": True,
-                "email_id": "dry-run",
+                "delivery_id": "dry-run",
                 "status_code": 202,
                 "error": None,
             }
-        if not settings.secret_is_set(settings.SENDGRID_API_KEY):
+
+        webhook_url = settings.POWER_AUTOMATE_WEBHOOK_URL.strip()
+        if not webhook_url:
             return {
                 "success": False,
-                "email_id": None,
+                "delivery_id": None,
                 "status_code": None,
-                "error": "SENDGRID_API_KEY missing",
+                "error": "POWER_AUTOMATE_WEBHOOK_URL missing",
             }
 
         payload = {
-            "personalizations": [{"to": [{"email": recipient}]}],
-            "from": {"email": str(settings.SENDER_EMAIL), "name": settings.SENDER_NAME},
             "subject": subject,
-            "content": [{"type": "text/html", "value": html_content}],
-            "custom_args": {"article_count": str(article_count)},
-        }
-        headers = {
-            "Authorization": f"Bearer {settings.SENDGRID_API_KEY.get_secret_value()}",
-            "Content-Type": "application/json",
+            "html_content": html_content,
+            "article_count": article_count,
+            "run_id": run_id,
         }
         async with httpx.AsyncClient(
-            timeout=httpx.Timeout(30.0, connect=5.0)
+            timeout=httpx.Timeout(60.0, connect=10.0)
         ) as client:
-            response = await client.post(
-                SENDGRID_SEND_URL, json=payload, headers=headers
-            )
+            response = await client.post(webhook_url, json=payload)
             response.raise_for_status()
-        message_id = response.headers.get("X-Message-Id")
-        logger.info("SendGrid accepted email message_id=%s", message_id)
+
+        delivery_id = response.headers.get("x-ms-request-id") or response.headers.get(
+            "x-request-id"
+        )
+        logger.info(
+            "Power Automate accepted brief status=%s delivery_id=%s",
+            response.status_code,
+            delivery_id,
+        )
         return {
             "success": True,
-            "email_id": message_id,
+            "delivery_id": delivery_id,
             "status_code": response.status_code,
             "error": None,
         }
-
-    def _mask_email(self, recipient: str) -> str:
-        """Mask email for logs.
-
-        Args:
-            recipient: Email address.
-
-        Returns:
-            Masked email.
-        """
-        local, _, domain = recipient.partition("@")
-        return f"{local[:3]}***@{domain}" if domain else "***"
