@@ -23,6 +23,7 @@ import httpx
 from src.config import settings
 from src.db.models import Article
 from src.utils.retry import async_retry
+from src.utils.text import sanitize_postgres_text
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class Summarizer:
                 )
                 article.summary = self.fallback_summary(article)
             else:
-                article.summary = str(result)
+                article.summary = sanitize_postgres_text(str(result))
         return articles
 
     async def summarize_article(self, article: Article) -> str:

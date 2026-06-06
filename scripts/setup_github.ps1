@@ -38,7 +38,10 @@ function Read-DotEnvValue {
 }
 
 $gh = Get-GhPath
-& $gh auth status | Out-Null
+& $gh auth status 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "GitHub CLI is not authenticated. Run: gh auth login"
+}
 
 if (-not $Repo) {
     $remote = git remote get-url origin 2>$null
@@ -78,11 +81,17 @@ foreach ($entry in $secretMap.GetEnumerator()) {
         continue
     }
     $entry.Value | & $gh secret set $entry.Key --repo $Repo
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to set secret $($entry.Key)"
+    }
     Write-Host "Set $($entry.Key)"
 }
 
 if (-not $SkipWorkflowDispatch) {
     Write-Host "Triggering workflow dispatch (dry_run=true) ..."
     & $gh workflow run "daily-scrape.yml" --repo $Repo -f dry_run=true
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to trigger daily-scrape workflow"
+    }
     Write-Host "Monitor with: gh run list --repo $Repo --workflow=daily-scrape.yml"
 }

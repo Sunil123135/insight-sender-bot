@@ -33,6 +33,7 @@ from src.scrapers.base import BaseScraper, ScrapedArticle
 from src.scrapers.chain_scraper import ChainScraper
 from src.scrapers.jina_scraper import JinaScraper
 from src.scrapers.native_scraper import NativeScraper
+from src.utils.text import sanitize_postgres_text
 
 logger = logging.getLogger(__name__)
 
@@ -155,15 +156,22 @@ class ScraperManager:
             str(candidate.get("body") or ""),
             source.source_key,
         )
+        title = sanitize_postgres_text(str(candidate.get("title") or source.name))[:500]
+        body = sanitize_postgres_text(str(candidate.get("body") or ""))
+        url = sanitize_postgres_text(str(candidate.get("url") or source.url))
         return Article(
             source_key=source.source_key,
             source_name=source.name,
-            title=str(candidate.get("title") or source.name)[:500],
-            url=str(candidate.get("url") or source.url),
-            canonical_url=candidate.get("canonical_url"),
-            body=str(candidate.get("body") or ""),
-            image_url=candidate.get("image_url"),
-            author=candidate.get("author"),
+            title=title,
+            url=url or source.url,
+            canonical_url=sanitize_postgres_text(
+                str(candidate.get("canonical_url") or "")
+            )
+            or None,
+            body=body,
+            image_url=sanitize_postgres_text(str(candidate.get("image_url") or ""))
+            or None,
+            author=sanitize_postgres_text(str(candidate.get("author") or "")) or None,
             published_at=cast(datetime | None, candidate.get("published_at")),
             scraped_at=datetime.now(UTC),
             relevance_score=score,
