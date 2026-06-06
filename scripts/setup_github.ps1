@@ -80,7 +80,7 @@ foreach ($entry in $secretMap.GetEnumerator()) {
         Write-Host "Skipping empty secret: $($entry.Key)"
         continue
     }
-    $entry.Value | & $gh secret set $entry.Key --repo $Repo
+    & $gh secret set $entry.Key --repo $Repo --body $entry.Value
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to set secret $($entry.Key)"
     }

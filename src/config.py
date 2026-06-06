@@ -59,11 +59,7 @@ class Settings(BaseSettings):
 
     EMAIL_SUBJECT_PREFIX: str = "ScrapeSignal Daily Brief"
     ARTICLES_PER_EMAIL: int = Field(default=20, ge=1, le=50)
-    POWER_AUTOMATE_WEBHOOK_URL: str = (
-        "https://default6e63ffc0c2fc4cc4b6c4666b2ce89d.92.environment.api.powerplatform.com:443/"
-        "powerautomate/automations/direct/workflows/84e4ad465dca49bbb808d622e1bcd704/"
-        "triggers/manual/paths/invoke?api-version=1"
-    )
+    POWER_AUTOMATE_WEBHOOK_URL: str = ""
 
     DELIVERY_TIME_IST: str = "07:00"
     DELIVERY_TIME_UTC: str = "01:30"
