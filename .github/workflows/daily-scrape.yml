@@ -35,6 +35,7 @@ jobs:
         run: |
           poetry run python scripts/init_db.py
           poetry run python scripts/seed_sources.py
+          poetry run python scripts/update_scraper_types.py
 
       - name: Run ScrapeSignal
         env:
