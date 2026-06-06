@@ -8,8 +8,11 @@ from src.email.sender import BriefSender, SUBJECT_HEADER
 
 
 @pytest.mark.asyncio
-async def test_brief_sender_dry_run() -> None:
+async def test_brief_sender_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
     """Dry run returns success without network."""
+    from src.config import settings
+
+    monkeypatch.setattr(settings, "DRY_RUN", True)
     result = await BriefSender().send("Subject", "<p>Body</p>", 1, "run-1")
     assert result["success"] is True
     assert result["delivery_id"] == "dry-run"
