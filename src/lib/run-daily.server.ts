@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { scrapeUrlImpl } from "@/lib/scrape.functions";
 import { summarizeContentImpl } from "@/lib/summarize.functions";
 import { buildBriefHtml, type BriefItem } from "@/lib/email-html";
+import { DEFAULT_SCRAPER_SOURCES } from "@/lib/scrapers/types";
+import { runAllDefaultScrapers } from "@/lib/scrapers";
 
 export async function runDaily() {
   const startedAt = new Date().toISOString();
@@ -16,12 +18,22 @@ export async function runDaily() {
     return { ok: false, error: "schedule disabled or missing config" };
   }
 
-  const { data: sources } = await supabaseAdmin
+  const { data: dbSources } = await supabaseAdmin
     .from("sources")
     .select("*")
     .eq("active", true);
 
-  if (!sources || sources.length === 0) {
+  // Merge DB sources with built-in default scrapers (always run first)
+  const builtinSources = DEFAULT_SCRAPER_SOURCES.map((s, i) => ({
+    id: `builtin-${i}`,
+    name: s.name,
+    url: s.url,
+    domain: s.domain,
+    active: true,
+  }));
+  const sources = [...builtinSources, ...(dbSources ?? [])];
+
+  if (sources.length === 0) {
     return { ok: false, error: "no active sources" };
   }
 
@@ -38,7 +50,7 @@ export async function runDaily() {
   const briefId = brief!.id as string;
   const collected: BriefItem[] = [];
   type ItemRow = {
-    source_id: string;
+    source_id: string | null;
     source_name: string;
     domain: string;
     url: string;
@@ -94,7 +106,7 @@ export async function runDaily() {
         };
         collected.push(briefItem);
         itemRows.push({
-          source_id: src.id,
+          source_id: src.id.startsWith("builtin-") ? null : src.id,
           source_name: src.name,
           domain: src.domain,
           url: briefItem.url,
@@ -142,7 +154,26 @@ export async function runDaily() {
     year: "numeric",
     timeZone: "Asia/Kolkata",
   });
-  const html = buildBriefHtml(top, dateLabel);
+  const briefHtml = buildBriefHtml(top, dateLabel);
+
+  // Prepend raw scraper HTML report from default scrapers
+  let html = briefHtml;
+  try {
+    const report = await runAllDefaultScrapers();
+    if (report.html) {
+      html = report.html.replace(
+        "</body></html>",
+        `<hr style="border:none;border-top:3px solid #1F3864;margin:40px 0;"/>
+        <div style="max-width:680px;margin:0 auto;padding:0 20px;">
+          <h2 style="font-size:22px;color:#0f172a;margin-bottom:16px;">AI Intelligence Brief</h2>
+        </div>
+        ${briefHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? briefHtml}
+        </body></html>`,
+      );
+    }
+  } catch (e) {
+    console.warn("scraper HTML report failed:", e);
+  }
 
   const results: Array<{ channel: string; ok: boolean; detail: string }> = [];
 

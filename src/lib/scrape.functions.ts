@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { scrapeWithDefaultScrapers } from "@/lib/scrapers";
 
 const InputSchema = z.object({ url: z.string().url() });
 const TIMEOUT_MS = 20_000;
@@ -45,6 +46,18 @@ function extractImageFromHtml(html: string, baseUrl: string): string | null {
 }
 
 export async function scrapeUrlImpl(url: string) {
+  // Default scrapers (yt-dlp, webScrapers, keep-up-daily, TrendingNews)
+  const builtin = await scrapeWithDefaultScrapers(url);
+  if (builtin?.ok) {
+    return {
+      ok: true as const,
+      content: builtin.content,
+      imageUrl: builtin.imageUrl,
+      scraper: builtin.scraper,
+      articleCount: builtin.articles.length,
+    };
+  }
+
   const jinaKey = process.env.JINA_API_KEY;
   let content = "";
   let imageUrl: string | null = null;

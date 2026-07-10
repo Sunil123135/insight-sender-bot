@@ -9,7 +9,15 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "validate:env": "node scripts/validate-env.mjs",
+    "secrets:push": "node scripts/push-wrangler-secrets.mjs",
+    "auth:check": "node scripts/check-auth-user.mjs",
+    "auth:reset-password": "node scripts/reset-auth-password.mjs",
+    "auth:test-forgot-password": "node scripts/test-forgot-password.mjs",
+    "deploy": "npm run build && npx wrangler deploy",
+    "scrapers:run": "node scripts/run-scrapers.mjs",
+    "scrapers:install": "pip install -r requirements.txt && pip install -r scrapers/keep-up-daily/requirements.txt"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

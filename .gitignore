@@ -15,10 +15,24 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+.env
+.env.*
 
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
+
+# Scraper output
+output/
+
+# yt-dlp source (install via pip — see requirements.txt)
+scrapers/yt-dlp/
+
+# Vendored scraper git metadata
+scrapers/*/.git/
+
+# Scraper-generated daily data (regenerated on each run)
+scrapers/keep-up-daily/data/*.json
 
 # Editor directories and files
 .vscode/*
