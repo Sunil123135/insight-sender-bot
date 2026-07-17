@@ -21,7 +21,6 @@ jobs:
           node-version: "22"
 
       - name: Install Python scrapers
-        working-directory: insight-sender-bot
         run: |
           pip install -r requirements.txt
           if [ -d scrapers/keep-up-daily ]; then
@@ -29,22 +28,28 @@ jobs:
           fi
 
       - name: Run scraper pipeline
-        working-directory: insight-sender-bot
         run: node scripts/run-scrapers.mjs
 
       - name: Upload scraper HTML artifact
         uses: actions/upload-artifact@v4
         with:
           name: scraper-report
-          path: insight-sender-bot/output/*.html
+          path: output/*.html
           retention-days: 30
 
       - name: Trigger daily brief (Cloudflare Worker)
-        if: ${{ secrets.RUN_DAILY_WEBHOOK_URL != '' }}
         env:
           WEBHOOK_URL: ${{ secrets.RUN_DAILY_WEBHOOK_URL }}
           SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "RUN_DAILY_WEBHOOK_URL secret not set — skipping worker trigger"
+            exit 0
+          fi
+          if [ -z "$SERVICE_KEY" ]; then
+            echo "SUPABASE_SERVICE_ROLE_KEY secret not set — skipping worker trigger"
+            exit 0
+          fi
           curl -sf -X POST "$WEBHOOK_URL" \
             -H "Authorization: Bearer $SERVICE_KEY" \
             -H "Content-Type: application/json"
