@@ -20,10 +20,12 @@ from pathlib import Path
 
 # Third-party
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from markupsafe import Markup
 
 # Local
 from src.config import settings
 from src.db.models import Article
+from src.email.summary_format import format_summary_html
 
 
 class EmailGenerator:
@@ -35,6 +37,9 @@ class EmailGenerator:
         self.env = Environment(
             loader=FileSystemLoader(template_dir),
             autoescape=select_autoescape(["html", "xml"]),
+        )
+        self.env.filters["summary_html"] = lambda value: Markup(
+            format_summary_html(value)
         )
 
     def render(
@@ -78,8 +83,25 @@ class EmailGenerator:
                     "distribution reliability."
                 ),
                 summary=(
-                    "AI planning tools can reduce supply disruptions and "
-                    "improve service levels."
+                    "{"
+                    '"executive_summary":"AI planning tools can reduce supply '
+                    "disruptions and improve service levels for healthcare "
+                    'logistics teams.",'
+                    '"insights":[{'
+                    '"insight":"Use ML inventory planning to cut stockouts",'
+                    '"use_case":"Hospital distribution planning",'
+                    '"benefit":"Higher OTIF and lower expedites",'
+                    '"difficulty":"Medium",'
+                    '"time_horizon":"6-18 months"'
+                    "}],"
+                    '"actions":['
+                    '"Pilot ML replenishment on top 50 SKUs",'
+                    '"Track OTIF and expedite cost weekly",'
+                    '"Expand to regional DCs after 90 days"'
+                    "],"
+                    '"ai_opportunity_score":8,'
+                    '"supply_chain_impact_score":9'
+                    "}"
                 ),
                 relevance_score=95.0,
                 content_hash="a" * 64,

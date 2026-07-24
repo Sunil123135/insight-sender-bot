@@ -36,11 +36,11 @@
           {% for article in articles %}
           <tr>
             <td style="padding:24px 32px;border-bottom:1px solid #e6ebf2;">
-              <div style="font-size:12px;line-height:18px;text-transform:uppercase;color:#66758a;font-weight:700;">{{ article.source_name }} · Score {{ "%.1f"|format(article.relevance_score) }}</div>
-              <h2 style="margin:6px 0 10px 0;font-size:20px;line-height:27px;font-weight:700;">
+              <div style="font-size:12px;line-height:18px;text-transform:uppercase;color:#66758a;font-weight:700;letter-spacing:.04em;">{{ article.source_name }} · Score {{ "%.1f"|format(article.relevance_score) }}</div>
+              <h2 style="margin:6px 0 14px 0;font-size:20px;line-height:27px;font-weight:700;">
                 <a href="{{ article.url }}" style="color:#123e73;text-decoration:none;">{{ article.title }}</a>
               </h2>
-              <div style="margin:0 0 12px 0;font-size:15px;line-height:23px;color:#263244;white-space:pre-wrap;">{{ article.summary or article.body[:220] }}</div>
+              <div style="margin:0 0 14px 0;">{{ (article.summary or article.body[:220]) | summary_html }}</div>
               <a href="{{ article.url }}" style="font-size:14px;line-height:20px;color:#0b63ce;text-decoration:underline;">Read source</a>
             </td>
           </tr>

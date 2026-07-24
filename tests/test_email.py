@@ -15,6 +15,10 @@ def test_email_template_renders() -> None:
     html = EmailGenerator().render_test_email()
     assert "<!DOCTYPE html>" in html
     assert "ScrapeSignal Daily Brief" in html
+    assert "Executive summary" in html
+    assert "Key insights" in html
+    assert "Recommended actions" in html
+    assert "white-space:pre-wrap" not in html
 
 
 def test_email_validator_passes_links() -> None:

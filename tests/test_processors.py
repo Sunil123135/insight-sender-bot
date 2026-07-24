@@ -121,4 +121,5 @@ def test_summarizer_prompt_contains_context() -> None:
     assert "AI Supply Chain" in prompt
     assert "Body" in prompt
     assert "Supply Chain Innovation Advisor" in prompt
-    assert "Executive Summary" in prompt
+    assert "executive_summary" in prompt
+    assert "Return ONLY valid JSON" in prompt

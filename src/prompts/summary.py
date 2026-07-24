@@ -13,25 +13,33 @@ Read the article and identify only insights that could drive measurable improvem
 - Supply Risk
 - Customer Experience
 
-For each insight provide:
+Return ONLY valid JSON (no markdown fences, no prose outside JSON) with this exact shape:
 
-1. Insight
-2. Potential Supply Chain Use Case
-3. Expected Benefit
-4. Difficulty (Low/Medium/High)
-5. Time Horizon (0-6 months, 6-18 months, 18+ months)
+{
+  "executive_summary": "Max 60 words. What matters and why for a supply chain leader.",
+  "insights": [
+    {
+      "insight": "One crisp insight (max 18 words)",
+      "use_case": "Specific supply chain use case (max 12 words)",
+      "benefit": "Expected measurable benefit (max 12 words)",
+      "difficulty": "Low|Medium|High",
+      "time_horizon": "0-6 months|6-18 months|18+ months"
+    }
+  ],
+  "actions": [
+    "Action 1 (imperative, max 16 words)",
+    "Action 2",
+    "Action 3"
+  ],
+  "ai_opportunity_score": 1,
+  "supply_chain_impact_score": 1
+}
 
-Then provide:
-
-### Executive Summary (max 100 words)
-
-### Top 3 Recommended Actions
-
-### AI Opportunity Score (1-10)
-
-### Supply Chain Impact Score (1-10)
-
-Be concise and focus on actions rather than description."""
+Rules:
+- Include 2 to 3 insights maximum (highest signal only).
+- Exactly 3 actions.
+- Scores are integers from 1 to 10.
+- Be concise and action-oriented. Do not repeat the article."""
 
 
 def build_summary_prompt(*, title: str, source_name: str, body: str) -> str:

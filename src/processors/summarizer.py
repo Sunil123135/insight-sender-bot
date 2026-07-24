@@ -107,6 +107,7 @@ class Summarizer:
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": settings.LLM_MAX_TOKENS,
             "temperature": 0.2,
+            "response_format": {"type": "json_object"},
         }
         headers = {
             "Authorization": f"Bearer {settings.GROQ_API_KEY.get_secret_value()}",
