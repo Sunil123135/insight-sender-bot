@@ -24,7 +24,16 @@ def test_normalize_neon_asyncpg_url() -> None:
 
 def test_normalize_plain_postgresql_url() -> None:
     """Plain postgresql:// URLs from Neon console are accepted."""
-    raw = "postgresql://user:pass@localhost:5432/scrapesignal"
+    raw = "postgresql://user:pass@ep-example.aws.neon.tech/neondb"
     normalized = normalize_database_url(raw)
     assert normalized.startswith("postgresql+psycopg://")
     assert "sslmode=require" in normalized
+
+
+def test_normalize_local_postgresql_url_disables_ssl() -> None:
+    """Local Postgres URLs default to sslmode=disable."""
+    raw = "postgresql://user:pass@localhost:5432/scrapesignal"
+    normalized = normalize_database_url(raw)
+    assert normalized.startswith("postgresql+psycopg://")
+    assert "sslmode=disable" in normalized
+    assert "sslmode=require" not in normalized

@@ -105,6 +105,46 @@ def test_manager_to_article_and_dedupe() -> None:
     assert len(manager._dedupe_articles([article])) == 1
 
 
+def test_manager_dedupe_drops_duplicates() -> None:
+    """Manager drops duplicate articles and keeps correct content hashes."""
+    from src.db.models import Article
+
+    manager = ScraperManager()
+    first = Article(
+        source_key="s",
+        source_name="S",
+        title="Same title",
+        url="https://example.com/a",
+        body="Same body text for hashing",
+        relevance_score=90,
+        content_hash="",
+    )
+    duplicate = Article(
+        source_key="s",
+        source_name="S",
+        title="Same title",
+        url="https://example.com/a",
+        body="Same body text for hashing",
+        relevance_score=90,
+        content_hash="",
+    )
+    unique = Article(
+        source_key="s",
+        source_name="S",
+        title="Different title",
+        url="https://example.com/b",
+        body="Different body text for hashing",
+        relevance_score=90,
+        content_hash="",
+    )
+    result = manager._dedupe_articles([first, duplicate, unique])
+    assert len(result) == 2
+    assert result[0].url == "https://example.com/a"
+    assert result[1].url == "https://example.com/b"
+    assert len(result[0].content_hash) == 64
+    assert result[0].content_hash != result[1].content_hash
+
+
 @pytest.mark.asyncio
 async def test_manager_scrape_all_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     """Manager handles empty source list."""

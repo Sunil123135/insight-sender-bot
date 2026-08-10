@@ -30,6 +30,7 @@ from src.db.repository import (
     get_enabled_keywords,
     get_enabled_sources,
     mark_articles_emailed,
+    persist_article_summaries,
     purge_expired_hashes,
     select_top_articles,
 )
@@ -83,6 +84,8 @@ class ScrapeSignalOrchestrator:
             articles = await self.summarizer.summarize_articles(
                 await self._load_top_articles()
             )
+            async with get_db() as session:
+                await persist_article_summaries(session, articles)
             html = self.email_generator.render(articles, run_id, started)
             validation = self.email_validator.validate(html)
             if validation["link_issues"] or validation["alt_text_issues"]:
@@ -94,6 +97,7 @@ class ScrapeSignalOrchestrator:
                 len(articles),
                 run_id,
             )
+            delivered = bool(result["success"]) and not settings.DRY_RUN
 
             async with get_db() as session:
                 session.add(
@@ -108,13 +112,14 @@ class ScrapeSignalOrchestrator:
                         sent_at=(datetime.now(UTC) if result["success"] else None),
                     ),
                 )
-                if result["success"]:
+                # Only mark articles emailed after a real (non-dry-run) delivery.
+                if delivered:
                     await mark_articles_emailed(session, articles, datetime.now(UTC))
             duration = (datetime.now(UTC) - started).total_seconds()
             logger.info(
                 "ScrapeSignal run %s completed in %.2f seconds", run_id, duration
             )
-            return 0
+            return 0 if result["success"] else 1
         except Exception as error:
             logger.critical(
                 "ScrapeSignal run %s failed: %s", run_id, error, exc_info=True

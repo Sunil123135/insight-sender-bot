@@ -42,6 +42,10 @@ class FakeResult:
         """Return fake scalar result."""
         return FakeScalarResult(self.rows)
 
+    def all(self) -> list[Any]:
+        """Return rows for returning() statements."""
+        return self.rows
+
 
 @dataclass
 class FakeSession:
@@ -79,7 +83,7 @@ async def test_upsert_articles_empty() -> None:
 
 @pytest.mark.asyncio
 async def test_upsert_articles_non_empty() -> None:
-    """Upsert reports rowcount for article inserts."""
+    """Upsert reports inserted row count from RETURNING."""
     article = Article(
         source_key="s",
         source_name="S",
@@ -90,7 +94,7 @@ async def test_upsert_articles_non_empty() -> None:
         relevance_score=90,
         content_hash="e" * 64,
     )
-    session = FakeSession(FakeResult(rowcount=1))
+    session = FakeSession(FakeResult(rows=[(1,)]))
     assert await repository.upsert_articles(session, [article]) == 1  # type: ignore[arg-type]
 
 
@@ -111,7 +115,7 @@ async def test_remember_hashes_empty() -> None:
 
 @pytest.mark.asyncio
 async def test_mark_articles_emailed() -> None:
-    """Article email timestamp is assigned."""
+    """Article email timestamp is assigned via SQL update on article ids."""
     article = Article(
         source_key="s",
         source_name="S",
@@ -122,13 +126,16 @@ async def test_mark_articles_emailed() -> None:
         relevance_score=90,
         content_hash="h" * 64,
     )
+    article.id = 42
     sent_at = datetime.now(UTC)
+    session = FakeSession(FakeResult())
     await repository.mark_articles_emailed(  # type: ignore[arg-type]
-        FakeSession(FakeResult()),
+        session,
         [article],
         sent_at,
     )
     assert article.email_sent_date == sent_at
+    assert session.result.rowcount == 0
 
 
 @pytest.mark.asyncio

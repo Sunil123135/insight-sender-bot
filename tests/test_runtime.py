@@ -92,6 +92,7 @@ async def test_orchestrator_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
         relevance_score=95,
         content_hash="d" * 64,
     )
+    marked = {"called": False}
 
     async def no_op_int(session: object) -> int:
         return 0
@@ -105,7 +106,11 @@ async def test_orchestrator_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
     async def top_articles(session: object) -> list[Article]:
         return [article]
 
+    async def persist_summaries(session: object, articles: list[Article]) -> int:
+        return len(articles)
+
     async def mark(session: object, articles: list[Article], sent_at: datetime) -> None:
+        marked["called"] = True
         assert sent_at.tzinfo == UTC
 
     monkeypatch.setattr(main, "get_db", fake_get_db)
@@ -113,9 +118,77 @@ async def test_orchestrator_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(main, "get_enabled_sources", sources)
     monkeypatch.setattr(main, "get_enabled_keywords", keywords)
     monkeypatch.setattr(main, "select_top_articles", top_articles)
+    monkeypatch.setattr(main, "persist_article_summaries", persist_summaries)
     monkeypatch.setattr(main, "mark_articles_emailed", mark)
     monkeypatch.setattr(main, "ScraperManager", FakeManager)
+    monkeypatch.setattr(main.settings, "DRY_RUN", True)
 
     orchestrator = main.ScrapeSignalOrchestrator()
     orchestrator.summarizer = FakeSummarizer()  # type: ignore[assignment]
     assert await orchestrator.run() == 0
+    assert marked["called"] is False
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_failed_delivery_exits_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failed Power Automate delivery returns exit code 1."""
+    article = Article(
+        source_key="s",
+        source_name="S",
+        title="AI supply chain",
+        url="https://example.com/fail",
+        canonical_url="https://example.com/fail",
+        body="machine learning logistics",
+        relevance_score=95,
+        content_hash="e" * 64,
+    )
+
+    async def no_op_int(session: object) -> int:
+        return 0
+
+    async def sources(session: object) -> list[object]:
+        return []
+
+    async def keywords(session: object) -> list[object]:
+        return []
+
+    async def top_articles(session: object) -> list[Article]:
+        return [article]
+
+    async def persist_summaries(session: object, articles: list[Article]) -> int:
+        return len(articles)
+
+    async def mark(session: object, articles: list[Article], sent_at: datetime) -> None:
+        raise AssertionError("should not mark articles on failed delivery")
+
+    class FailingSender:
+        async def send(
+            self,
+            subject: str,
+            html: str,
+            article_count: int,
+            run_id: str,
+        ) -> dict[str, object]:
+            return {
+                "success": False,
+                "delivery_id": None,
+                "status_code": None,
+                "error": "POWER_AUTOMATE_WEBHOOK_URL missing",
+            }
+
+    monkeypatch.setattr(main, "get_db", fake_get_db)
+    monkeypatch.setattr(main, "purge_expired_hashes", no_op_int)
+    monkeypatch.setattr(main, "get_enabled_sources", sources)
+    monkeypatch.setattr(main, "get_enabled_keywords", keywords)
+    monkeypatch.setattr(main, "select_top_articles", top_articles)
+    monkeypatch.setattr(main, "persist_article_summaries", persist_summaries)
+    monkeypatch.setattr(main, "mark_articles_emailed", mark)
+    monkeypatch.setattr(main, "ScraperManager", FakeManager)
+    monkeypatch.setattr(main.settings, "DRY_RUN", False)
+
+    orchestrator = main.ScrapeSignalOrchestrator()
+    orchestrator.summarizer = FakeSummarizer()  # type: ignore[assignment]
+    orchestrator.brief_sender = FailingSender()  # type: ignore[assignment]
+    assert await orchestrator.run() == 1

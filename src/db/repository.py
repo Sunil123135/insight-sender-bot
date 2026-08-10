@@ -20,7 +20,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 # Third-party
-from sqlalchemy import Select, delete, select
+from sqlalchemy import Select, delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -89,9 +89,11 @@ async def upsert_articles(session: AsyncSession, articles: list[Article]) -> int
         }
         for article in articles
     ]
-    statement = insert(Article).values(rows).on_conflict_do_nothing()
-    result = cast(CursorResult[Any], await session.execute(statement))
-    saved = int(result.rowcount or 0)
+    statement = (
+        insert(Article).values(rows).on_conflict_do_nothing().returning(Article.id)
+    )
+    result = await session.execute(statement)
+    saved = len(result.all())
     logger.info("Saved %s/%s candidate articles", saved, len(articles))
     return saved
 
@@ -161,8 +163,43 @@ async def mark_articles_emailed(
         articles: Articles that were included in an email.
         sent_at: UTC sent timestamp.
     """
+    article_ids = [article.id for article in articles if article.id is not None]
+    if not article_ids:
+        return
+    await session.execute(
+        update(Article)
+        .where(Article.id.in_(article_ids))
+        .values(email_sent_date=sent_at)
+    )
     for article in articles:
-        article.email_sent_date = sent_at
+        if article.id in article_ids:
+            article.email_sent_date = sent_at
+
+
+async def persist_article_summaries(
+    session: AsyncSession,
+    articles: list[Article],
+) -> int:
+    """Persist in-memory article summaries to the database.
+
+    Args:
+        session: Active async database session.
+        articles: Articles with summary fields populated.
+
+    Returns:
+        Number of articles updated.
+    """
+    updated = 0
+    for article in articles:
+        if article.id is None or not article.summary:
+            continue
+        await session.execute(
+            update(Article)
+            .where(Article.id == article.id)
+            .values(summary=article.summary)
+        )
+        updated += 1
+    return updated
 
 
 async def purge_expired_hashes(session: AsyncSession) -> int:

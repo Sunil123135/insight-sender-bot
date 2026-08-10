@@ -35,7 +35,8 @@ python -m poetry run python scripts/seed_sources.py
 ```
 
 4. Trigger the workflow manually once with `dry_run=true`.
-5. Trigger once with `dry_run=false` after confirming SendGrid sender verification.
+5. Trigger once with `dry_run=false` after confirming the Power Automate webhook
+   accepts the HTML brief and delivers mail correctly.
 
 ## Rollback
 
