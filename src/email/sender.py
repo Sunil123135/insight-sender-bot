@@ -17,7 +17,7 @@ Power Automate mapping (recommended, html mode):
     - Body: @triggerBody()
     - Is HTML: Yes
 
-Power Automate mapping (json mode):
+Power Automate mapping (json mode / automatic fallback after HTML 400):
     - Subject: @triggerBody()?['subject']
     - Body: @triggerBody()?['body']
     - Is HTML: Yes
@@ -25,16 +25,17 @@ Power Automate mapping (json mode):
 
 # Standard library
 import logging
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 # Third-party
 import httpx
 
 # Local
 from src.config import settings
-from src.utils.retry import async_retry
 
 logger = logging.getLogger(__name__)
+
+PayloadFormat = Literal["html", "json"]
 
 SUBJECT_HEADER = "X-Email-Subject"
 ARTICLE_COUNT_HEADER = "X-Article-Count"
@@ -53,7 +54,6 @@ class BriefDeliveryResult(TypedDict):
 class BriefSender:
     """Send the daily HTML brief to a Power Automate webhook."""
 
-    @async_retry(exceptions=(httpx.HTTPError, httpx.TimeoutException))
     async def send(
         self,
         subject: str,
@@ -93,41 +93,97 @@ class BriefSender:
                 "error": "POWER_AUTOMATE_WEBHOOK_URL missing",
             }
 
+        formats = self._format_order()
+        last_response: httpx.Response | None = None
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(60.0, connect=10.0)
         ) as client:
-            if settings.POWER_AUTOMATE_PAYLOAD_FORMAT == "json":
-                response = await client.post(
+            for fmt in formats:
+                response = await self._post_format(
+                    client,
+                    fmt,
                     webhook_url,
-                    json=self._json_payload(
-                        subject, html_content, article_count, run_id
-                    ),
+                    subject,
+                    html_content,
+                    article_count,
+                    run_id,
                 )
-            else:
-                response = await client.post(
-                    webhook_url,
-                    content=html_content.encode("utf-8"),
-                    headers=self._html_headers(
-                        subject, html_content, article_count, run_id
-                    ),
+                last_response = response
+                if response.is_success or response.status_code == 202:
+                    delivery_id = response.headers.get(
+                        "x-ms-request-id"
+                    ) or response.headers.get("x-request-id")
+                    logger.info(
+                        "Power Automate accepted brief status=%s delivery_id=%s format=%s",
+                        response.status_code,
+                        delivery_id,
+                        fmt,
+                    )
+                    return {
+                        "success": True,
+                        "delivery_id": delivery_id,
+                        "status_code": response.status_code,
+                        "error": None,
+                    }
+                logger.warning(
+                    "Power Automate rejected format=%s status=%s body=%s",
+                    fmt,
+                    response.status_code,
+                    (response.text or "")[:500],
                 )
-            response.raise_for_status()
+                if response.status_code >= 500:
+                    response.raise_for_status()
 
-        delivery_id = response.headers.get("x-ms-request-id") or response.headers.get(
-            "x-request-id"
+        assert last_response is not None
+        last_response.raise_for_status()
+        raise RuntimeError("Power Automate delivery failed without HTTP error")
+
+    def _format_order(self) -> list[PayloadFormat]:
+        """Return preferred payload formats, with the other format as fallback.
+
+        Returns:
+            Payload formats to attempt in order.
+        """
+        preferred: PayloadFormat = (
+            "json" if settings.POWER_AUTOMATE_PAYLOAD_FORMAT == "json" else "html"
         )
-        logger.info(
-            "Power Automate accepted brief status=%s delivery_id=%s format=%s",
-            response.status_code,
-            delivery_id,
-            settings.POWER_AUTOMATE_PAYLOAD_FORMAT,
+        fallback: PayloadFormat = "html" if preferred == "json" else "json"
+        return [preferred, fallback]
+
+    async def _post_format(
+        self,
+        client: httpx.AsyncClient,
+        fmt: PayloadFormat,
+        webhook_url: str,
+        subject: str,
+        html_content: str,
+        article_count: int,
+        run_id: str | None,
+    ) -> httpx.Response:
+        """POST one payload format to the Power Automate webhook.
+
+        Args:
+            client: Shared HTTP client.
+            fmt: Payload format to send.
+            webhook_url: Webhook URL.
+            subject: Brief subject line.
+            html_content: HTML body.
+            article_count: Number of articles included.
+            run_id: Optional pipeline run identifier.
+
+        Returns:
+            HTTP response.
+        """
+        if fmt == "json":
+            return await client.post(
+                webhook_url,
+                json=self._json_payload(subject, html_content, article_count, run_id),
+            )
+        return await client.post(
+            webhook_url,
+            content=html_content.encode("utf-8"),
+            headers=self._html_headers(subject, html_content, article_count, run_id),
         )
-        return {
-            "success": True,
-            "delivery_id": delivery_id,
-            "status_code": response.status_code,
-            "error": None,
-        }
 
     def _html_headers(
         self,
