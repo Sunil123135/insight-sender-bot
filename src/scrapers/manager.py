@@ -33,6 +33,7 @@ from src.scrapers.base import BaseScraper, ScrapedArticle
 from src.scrapers.chain_scraper import ChainScraper
 from src.scrapers.jina_scraper import JinaScraper
 from src.scrapers.native_scraper import NativeScraper
+from src.utils.hashing import generate_content_hash
 from src.utils.text import sanitize_postgres_text
 
 logger = logging.getLogger(__name__)
@@ -188,14 +189,20 @@ class ScraperManager:
         Returns:
             Unique article objects.
         """
-        candidates: list[ArticleCandidate] = [
-            {"title": article.title, "body": article.body, "url": article.url}
-            for article in articles
-        ]
-        deduped = self.deduplicator.deduplicate(candidates)
-        hashes = [candidate["content_hash"] for candidate in deduped]
         unique_articles: list[Article] = []
-        for article, content_hash in zip(articles, hashes, strict=False):
+        for article in articles:
+            content_hash = generate_content_hash(
+                article.title,
+                article.body,
+                article.url,
+            )
+            if content_hash in self.deduplicator.seen_hashes:
+                logger.info("Skipping duplicate candidate: %s", article.url)
+                continue
+            self.deduplicator.seen_hashes.add(content_hash)
             article.content_hash = content_hash
             unique_articles.append(article)
+        logger.info(
+            "Deduplicated %s candidates to %s", len(articles), len(unique_articles)
+        )
         return unique_articles

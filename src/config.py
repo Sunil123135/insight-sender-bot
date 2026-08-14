@@ -84,6 +84,7 @@ class Settings(BaseSettings):
     APIFY_API_TOKEN: SecretStr = SecretStr("")
     APIFY_ACTOR_ID: str = "apify~website-content-crawler"
     APIFY_RUN_TIMEOUT_SECONDS: float = Field(default=300.0, ge=60.0, le=600.0)
+    FIRECRAWL_API_KEY: SecretStr = SecretStr("")
 
     GROQ_API_KEY: SecretStr = SecretStr("")
     GROQ_MODEL: str = "llama-3.3-70b-versatile"

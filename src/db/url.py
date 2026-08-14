@@ -22,7 +22,9 @@ _ASYNC_DRIVER_PREFIXES = (
 )
 
 
-def normalize_database_url(database_url: str, *, connect_timeout_seconds: int = 30) -> str:
+def normalize_database_url(
+    database_url: str, *, connect_timeout_seconds: int = 30
+) -> str:
     """Normalize configured PostgreSQL URL for SQLAlchemy async psycopg.
 
     Neon console strings often use ``postgresql://`` or ``ssl=require`` query
@@ -63,7 +65,12 @@ def normalize_database_url(database_url: str, *, connect_timeout_seconds: int = 
             has_sslmode = True
 
     if not has_sslmode:
-        query_pairs.append(("sslmode", "require"))
+        host = (parsed.hostname or "").lower()
+        # Local Docker/dev Postgres typically has no TLS; require SSL for remote hosts.
+        if host in {"localhost", "127.0.0.1", "::1"}:
+            query_pairs.append(("sslmode", "disable"))
+        else:
+            query_pairs.append(("sslmode", "require"))
     if not has_connect_timeout:
         query_pairs.append(("connect_timeout", str(connect_timeout_seconds)))
 

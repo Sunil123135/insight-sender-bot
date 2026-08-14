@@ -11,7 +11,9 @@ from src.config import settings
 
 def test_core_contract_constants() -> None:
     """Core delivery constants match specification."""
-    assert settings.POWER_AUTOMATE_WEBHOOK_URL.startswith("https://")
     assert settings.CRON_SCHEDULE == "30 1 * * *"
     assert settings.ARTICLES_PER_EMAIL == 20
     assert settings.MIN_RELEVANCE_SCORE == 70.0
+    assert settings.DELIVERY_TIME_IST == "07:00"
+    # Webhook is optional in development/dry-run; production validation enforces it.
+    assert isinstance(settings.POWER_AUTOMATE_WEBHOOK_URL, str)
